@@ -1,11 +1,11 @@
-const AI_KEY = "AIzaSyBCHRBH-Nr8_T9u76TuNsM-KCkyFp2qMUM";
-
 function run(){
 
-  const input=document.getElementById("input").value;
+  const input = document.getElementById("input").value;
+
+  let result = CAS(input);
 
   document.getElementById("output").textContent =
-    CAS(input) + "\n\n" + explain(input);
+    result + "\n\n" + explain(input);
 
   if(input.startsWith("plot"))
     plot(input.replace("plot","").trim());
