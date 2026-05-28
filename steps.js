@@ -1,26 +1,12 @@
 function explain(input){
+  if(input.startsWith("solve"))
+    return "Step 1: Rearrange\nStep 2: Standard form\nStep 3: Factor or quadratic formula\nStep 4: Solve roots";
 
-  if(input.startsWith("solve")){
-    return `STEP-BY-STEP:
-1. Move all terms to one side
-2. Simplify to standard form ax^2 + bx + c = 0
-3. Factor OR use quadratic formula
-4. Solve roots`;
-  }
+  if(input.startsWith("diff"))
+    return "Step 1: Power rule\nStep 2: Multiply exponent\nStep 3: Reduce power";
 
-  if(input.startsWith("diff")){
-    return `STEP-BY-STEP:
-1. Identify exponent rule
-2. Multiply exponent
-3. Reduce exponent by 1`;
-  }
+  if(input.startsWith("int"))
+    return "Step 1: Increase exponent\nStep 2: Divide\nStep 3: Add constant";
 
-  if(input.startsWith("int")){
-    return `STEP-BY-STEP:
-1. Increase exponent by 1
-2. Divide by new exponent
-3. Add constant C`;
-  }
-
-  return "No step breakdown available.";
+  return "CAS_OS: No step breakdown available.";
 }
