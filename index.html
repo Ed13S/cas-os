@@ -1,30 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>CAS OS</title>
+<meta charset="UTF-8">
+<title>CAS OS FINAL EVOLUTION</title>
+
+<link rel="stylesheet" href="style.css">
 
 <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
-
-<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<h2>CAS OS</h2>
+<h2>CAS OS FINAL EVOLUTION</h2>
 
-<input id="input">
-<button onclick="run()">Run</button>
+<input id="input" placeholder="solve x^2=4 | diff x^3 | int x^2 | plot x^2">
+<button onclick="run()">RUN</button>
 
 <pre id="output"></pre>
 
 <hr>
 
-<textarea id="aiinput"></textarea>
-<button onclick="askAI()">AI</button>
+<h3>AI Assistant</h3>
+
+<input id="apikey" placeholder="Paste API key here (optional)">
+<textarea id="aiinput" placeholder="Ask anything"></textarea>
+<button onclick="askAI()">Ask AI</button>
+
 <pre id="aiout"></pre>
 
+<hr>
+
+<h3>GRAPH</h3>
 <div id="graph"></div>
 
 <script src="cas.js"></script>
