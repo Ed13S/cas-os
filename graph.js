@@ -5,10 +5,15 @@ function plot(expr){
 
   for(let i=min;i<=max;i+=step){
     x.push(i);
+
     try{
       let val = math.evaluate(expr,{x:i});
-      if(Math.abs(val)>1e6) val=null;
+
+      if(!isFinite(val) || Math.abs(val)>1e6)
+        val = null;
+
       y.push(val);
+
     }catch{
       y.push(null);
     }
