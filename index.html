@@ -1,41 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
 <title>CAS OS</title>
-
-<link rel="stylesheet" href="style.css">
 
 <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
 <h2>CAS OS</h2>
 
-<input id="input" placeholder="solve x^2=4 | diff x^3 | int x^2 | plot x^2">
-<button onclick="run()">RUN</button>
+<input id="input">
+<button onclick="run()">Run</button>
 
 <pre id="output"></pre>
 
 <hr>
 
-<h3>AI Assistant</h3>
-
-<textarea id="aiinput" placeholder="Ask math question"></textarea>
-<button onclick="askAI()">Ask AI</button>
-
+<textarea id="aiinput"></textarea>
+<button onclick="askAI()">AI</button>
 <pre id="aiout"></pre>
 
-<hr>
-
-<h3>Graph</h3>
 <div id="graph"></div>
 
-<script src="cas-engine.js"></script>
+<script src="cas.js"></script>
+<script src="steps.js"></script>
 <script src="graph.js"></script>
+<script src="physics.js"></script>
+<script src="chemistry.js"></script>
+<script src="handwriting.js"></script>
 <script src="ai.js"></script>
 <script src="app.js"></script>
 
