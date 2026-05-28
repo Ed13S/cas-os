@@ -1,18 +1,26 @@
-body {
-  margin:0;
-  font-family: monospace;
+body{
   background:#000;
   color:#00ff88;
+  font-family:monospace;
 }
-.layout {
-  display:flex;
-  height:100vh;
+
+input,textarea{
+  width:100%;
+  padding:8px;
+  margin:5px 0;
+  background:#111;
+  color:#0f0;
 }
-.left { width:40%; padding:10px; border-right:1px solid #222; overflow-y:auto; }
-.right { width:60%; padding:10px; }
-input, textarea {
-  width:100%; background:#111; color:#0f0; border:1px solid #333; padding:8px; margin:5px 0;
+
+button{
+  width:100%;
+  padding:8px;
+  background:#003322;
+  color:#0f0;
+  border:none;
+  cursor:pointer;
 }
-button { width:100%; padding:8px; background:#003322; color:#0f0; border:none; cursor:pointer; margin:2px 0;}
-pre { white-space:pre-wrap; max-height:200px; overflow:auto;}
-canvas { background:#111; }
+
+pre{
+  white-space:pre-wrap;
+}
