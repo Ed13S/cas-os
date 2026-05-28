@@ -2,17 +2,20 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CAS-OS ULTRA LAB MODE</title>
+<title>CAS_OS</title>
+
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 
 <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
+
 <body>
 
-<h2>CAS-OS ULTRA LAB MODE</h2>
+<h2>CAS_OS</h2>
 
 <input id="input" placeholder="solve x^2=4 | diff x^3 | int x^2 | plot x^2">
 <button onclick="run()">Run</button>
@@ -45,9 +48,9 @@
 
 <hr>
 
-<h3>Camera Math</h3>
+<h3>Camera OCR</h3>
 <input type="file" id="cameraInput" accept="image/*">
-<button onclick="readCamera()">Read Image</button>
+<button onclick="readCamera()">Read</button>
 <pre id="cameraOut"></pre>
 
 <script src="cas-engine.js"></script>
@@ -60,6 +63,8 @@
 <script src="voice.js"></script>
 <script src="camera.js"></script>
 <script src="app.js"></script>
+
 <script src="sw.js"></script>
+
 </body>
 </html>
