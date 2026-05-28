@@ -2,47 +2,64 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CAS OS FINAL EVOLUTION</title>
-
+<title>CAS-OS ULTRA LAB MODE</title>
+<link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 
 <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 </head>
-
 <body>
 
-<h2>CAS OS FINAL EVOLUTION</h2>
+<h2>CAS-OS ULTRA LAB MODE</h2>
 
 <input id="input" placeholder="solve x^2=4 | diff x^3 | int x^2 | plot x^2">
-<button onclick="run()">RUN</button>
+<button onclick="run()">Run</button>
 
 <pre id="output"></pre>
 
 <hr>
 
-<h3>AI Assistant</h3>
-
-<input id="apikey" placeholder="Paste API key here (optional)">
-<textarea id="aiinput" placeholder="Ask anything"></textarea>
+<h3>AI (Online)</h3>
+<input id="apikey" placeholder="API key">
+<textarea id="aiinput" placeholder="Ask AI"></textarea>
 <button onclick="askAI()">Ask AI</button>
-
 <pre id="aiout"></pre>
 
 <hr>
 
-<h3>GRAPH</h3>
+<h3>Graph</h3>
 <div id="graph"></div>
 
-<script src="cas.js"></script>
+<hr>
+
+<h3>Handwriting</h3>
+<canvas id="canvas" width="400" height="150"></canvas>
+<button onclick="clearCanvas()">Clear</button>
+
+<hr>
+
+<h3>Voice Input</h3>
+<button onclick="startVoice()">Start Voice</button>
+
+<hr>
+
+<h3>Camera Math</h3>
+<input type="file" id="cameraInput" accept="image/*">
+<button onclick="readCamera()">Read Image</button>
+<pre id="cameraOut"></pre>
+
+<script src="cas-engine.js"></script>
 <script src="steps.js"></script>
 <script src="graph.js"></script>
 <script src="physics.js"></script>
 <script src="chemistry.js"></script>
 <script src="handwriting.js"></script>
-<script src="ai.js"></script>
+<script src="ai-mini.js"></script>
+<script src="voice.js"></script>
+<script src="camera.js"></script>
 <script src="app.js"></script>
-
+<script src="sw.js"></script>
 </body>
 </html>
