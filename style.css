@@ -1,26 +1,24 @@
 body{
   background:#000;
-  color:#00ff88;
+  color:#00ff00;
   font-family:monospace;
+  padding:10px;
 }
 
 input,textarea{
   width:100%;
-  padding:8px;
-  margin:5px 0;
   background:#111;
-  color:#0f0;
+  color:#00ff00;
+  padding:8px;
 }
 
 button{
   width:100%;
-  padding:8px;
-  background:#003322;
-  color:#0f0;
-  border:none;
-  cursor:pointer;
+  padding:10px;
+  background:#003300;
+  color:#00ff00;
 }
 
-pre{
-  white-space:pre-wrap;
-}
+pre{white-space:pre-wrap}
+
+canvas{background:#111}
