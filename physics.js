@@ -1,12 +1,8 @@
 function physics(input){
-
   input = input.toLowerCase();
 
-  if(input.includes("f=m*a"))
-    return "F = m × a";
+  if(input.includes("f=m*a")) return "CAS_OS Physics: F = m × a";
+  if(input.includes("v=u+at")) return "CAS_OS Physics: v = u + at";
 
-  if(input.includes("v=u+at"))
-    return "v = u + at";
-
-  return "Physics module active (basic)";
+  return "CAS_OS Physics module active.";
 }
