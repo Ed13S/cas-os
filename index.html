@@ -1,1 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CAS OS GOD MODE++++++++</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
 
+<script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+</head>
+<body>
+
+<div class="layout">
+
+<div class="left">
+<h2>CAS OS GOD MODE++++++++</h2>
+<input id="input" placeholder="solve x^2=4 | diff x^3 | int x^2 | factor x^2-4 | plot x^2" />
+<button onclick="run()">RUN</button>
+<pre id="output"></pre>
+
+<h3>AI Tutor (Offline)</h3>
+<textarea id="aiinput"></textarea>
+<button onclick="askAI()">Explain</button>
+<pre id="aiout"></pre>
+
+<h3>Physics & Chemistry</h3>
+<input id="physinput" placeholder="physics F=m*a | chem H2 + O2 -> H2O"/>
+<button onclick="runSci()">Compute</button>
+<pre id="sciout"></pre>
+
+<h3>Handwriting Input (Draw below)</h3>
+<canvas id="handwriting" width="300" height="150" style="border:1px solid #0f0;"></canvas>
+<button onclick="convertHandwriting()">Convert</button>
+<pre id="handout"></pre>
+</div>
+
+<div class="right">
+<h3>GRAPH</h3>
+<div id="graph"></div>
+</div>
+
+</div>
+
+<script src="cas-engine.js"></script>
+<script src="steps.js"></script>
+<script src="physics.js"></script>
+<script src="chemistry.js"></script>
+<script src="graph.js"></script>
+<script src="handwriting.js"></script>
+<script src="ai-mini.js"></script>
+<script src="app.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+
+</body>
+</html>
