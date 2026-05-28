@@ -1,7 +1,28 @@
-const canvas=document.getElementById("handwriting");
+const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
+
 let drawing=false;
-canvas.addEventListener("mousedown",()=>drawing=true);
-canvas.addEventListener("mouseup",()=>drawing=false);
-canvas.addEventListener("mousemove",(e)=>{if(drawing){ctx.lineTo(e.offsetX,e.offsetY);ctx.strokeStyle="#0f0";ctx.stroke();ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);}});
-function convertHandwriting(){document.getElementById("handout").textContent="Converted handwriting: x^2 (placeholder)";}
+
+canvas.addEventListener("mousedown",(e)=>{
+  drawing=true;
+  ctx.beginPath();
+  ctx.moveTo(e.offsetX,e.offsetY);
+});
+
+canvas.addEventListener("mouseup",()=>{
+  drawing=false;
+});
+
+canvas.addEventListener("mousemove",(e)=>{
+  if(!drawing) return;
+
+  ctx.lineWidth=2;
+  ctx.strokeStyle="#00ff88";
+
+  ctx.lineTo(e.offsetX,e.offsetY);
+  ctx.stroke();
+});
+
+function convertHandwriting(){
+  return "Converted: x^2 + 2x (placeholder)";
+}
