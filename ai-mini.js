@@ -1,11 +1,10 @@
 async function askAI(){
 
   const prompt = document.getElementById("aiinput").value;
-  const key = AI_KEY; // from app.js
 
-  if(!key){
+  if(!AI_KEY){
     document.getElementById("aiout").textContent =
-      "No API key set. Add it in app.js line 6.";
+      "No API key set in app.js";
     return;
   }
 
@@ -15,14 +14,14 @@ async function askAI(){
       method:"POST",
       headers:{
         "Content-Type":"application/json",
-        "Authorization":"Bearer " + key
+        "Authorization":"Bearer " + AI_KEY
       },
       body:JSON.stringify({
         model:"gpt-4o-mini",
         messages:[
           {
             role:"system",
-            content:"You are CAS OS, a math tutor that explains step-by-step."
+            content:"You are CAS OS. Explain math step-by-step clearly."
           },
           {role:"user",content:prompt}
         ]
