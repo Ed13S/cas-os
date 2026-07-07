@@ -1,57 +1,183 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>CAS_OS</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>CAS·OS</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
-
 <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
-
 <body>
 
-<h2>CAS_OS</h2>
+<div class="device">
 
-<input id="input" placeholder="solve x^2=4 | diff x^3 | int x^2 | plot x^2">
-<button onclick="run()">Run</button>
+  <!-- brand strip -->
+  <div class="brand-strip">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">CAS<span class="brand-sep">·</span>OS</span>
+      <span class="badge">CAS</span>
+    </div>
+    <div class="status">
+      <span class="status-dot"></span>
+      <span id="clock" class="status-clock">--:--</span>
+      <span class="battery"><span class="battery-fill"></span></span>
+    </div>
+  </div>
 
-<pre id="output"></pre>
+  <!-- screen -->
+  <div class="screen">
+    <div class="lcd">
 
-<hr>
+      <!-- doc tabs -->
+      <div class="tabbar" role="tablist">
+        <button class="tab active" data-tab="calc" role="tab">1:Calculate</button>
+        <button class="tab" data-tab="graph" role="tab">2:Graph</button>
+        <button class="tab" data-tab="write" role="tab">3:Handwrite</button>
+        <button class="tab" data-tab="voice" role="tab">4:Voice</button>
+        <button class="tab" data-tab="cam" role="tab">5:Camera</button>
+        <button class="tab" data-tab="ai" role="tab">6:AI</button>
+      </div>
 
-<h3>AI (Online)</h3>
-<input id="apikey" placeholder="API key">
-<textarea id="aiinput" placeholder="Ask AI"></textarea>
-<button onclick="askAI()">Ask AI</button>
-<pre id="aiout"></pre>
+      <div class="page-indicator">
+        <span class="dot active"></span><span class="dot"></span><span class="dot"></span>
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
 
-<hr>
+      <!-- CALCULATE -->
+      <section class="pane active" id="pane-calc">
+        <div class="scratchpad">
+          <div class="history" id="history"></div>
+          <div class="entry-line">
+            <span class="entry-caret">&gt;</span>
+            <input id="input" autocomplete="off" spellcheck="false"
+                   placeholder="solve x^2=4 | diff x^3 | int x^2 | plot x^2">
+          </div>
+        </div>
+        <pre id="output" class="answer-line"></pre>
+      </section>
 
-<h3>Graph</h3>
-<div id="graph"></div>
+      <!-- GRAPH -->
+      <section class="pane" id="pane-graph">
+        <div class="pane-label">Graph</div>
+        <div id="graph" class="graph-box"></div>
+      </section>
 
-<hr>
+      <!-- HANDWRITING -->
+      <section class="pane" id="pane-write">
+        <div class="pane-label">Handwriting</div>
+        <canvas id="canvas" width="400" height="150"></canvas>
+        <div class="pane-actions">
+          <button class="softbtn" onclick="clearCanvas()">Clear</button>
+        </div>
+      </section>
 
-<h3>Handwriting</h3>
-<canvas id="canvas" width="400" height="150"></canvas>
-<button onclick="clearCanvas()">Clear</button>
+      <!-- VOICE -->
+      <section class="pane" id="pane-voice">
+        <div class="pane-label">Voice Input</div>
+        <div class="pane-actions">
+          <button class="softbtn softbtn--accent" onclick="startVoice()">● Start Voice</button>
+        </div>
+      </section>
 
-<hr>
+      <!-- CAMERA -->
+      <section class="pane" id="pane-cam">
+        <div class="pane-label">Camera OCR</div>
+        <input type="file" id="cameraInput" accept="image/*">
+        <div class="pane-actions">
+          <button class="softbtn" onclick="readCamera()">Read</button>
+        </div>
+        <pre id="cameraOut" class="answer-line"></pre>
+      </section>
 
-<h3>Voice Input</h3>
-<button onclick="startVoice()">Start Voice</button>
+      <!-- AI -->
+      <section class="pane" id="pane-ai">
+        <div class="pane-label">AI <span class="pane-sub">(Online)</span></div>
+        <input id="apikey" autocomplete="off" spellcheck="false" placeholder="API key">
+        <textarea id="aiinput" spellcheck="false" placeholder="Ask AI"></textarea>
+        <div class="pane-actions">
+          <button class="softbtn softbtn--accent" onclick="askAI()">Ask AI</button>
+        </div>
+        <pre id="aiout" class="answer-line"></pre>
+      </section>
 
-<hr>
+    </div>
+  </div>
 
-<h3>Camera OCR</h3>
-<input type="file" id="cameraInput" accept="image/*">
-<button onclick="readCamera()">Read</button>
-<pre id="cameraOut"></pre>
+  <!-- soft key row -->
+  <div class="softkeys">
+    <button class="softkey" data-action="menu">menu</button>
+    <button class="softkey" data-action="prevtab">◀ tab</button>
+    <button class="softkey" data-action="nexttab">tab ▶</button>
+    <button class="softkey" data-action="del">del</button>
+    <button class="softkey softkey--wide" data-action="run">enter ⏎</button>
+  </div>
+
+  <!-- keypad -->
+  <div class="keypad">
+
+    <div class="navcluster">
+      <div class="touchpad">
+        <button class="navbtn nav-up" data-action="navup">▲</button>
+        <button class="navbtn nav-left" data-action="navleft">◀</button>
+        <button class="navbtn nav-center" data-action="navcenter">•</button>
+        <button class="navbtn nav-right" data-action="navright">▶</button>
+        <button class="navbtn nav-down" data-action="navdown">▼</button>
+      </div>
+    </div>
+
+    <div class="keys keys--fn">
+      <button class="key key--fn" data-insert="x^2">x²</button>
+      <button class="key key--fn" data-insert="sqrt(">√(</button>
+      <button class="key key--fn" data-insert="^">x^</button>
+      <button class="key key--fn" data-insert="sin(">sin</button>
+      <button class="key key--fn" data-insert="cos(">cos</button>
+      <button class="key key--fn" data-insert="tan(">tan</button>
+      <button class="key key--fn" data-insert="pi">π</button>
+      <button class="key key--fn" data-insert="ln(">ln</button>
+      <button class="key key--fn" data-insert="log(">log</button>
+      <button class="key key--fn" data-insert="diff(">d/dx</button>
+      <button class="key key--fn" data-insert="int(">∫</button>
+      <button class="key key--fn" data-insert="solve(">solve</button>
+    </div>
+
+    <div class="keys keys--num">
+      <button class="key" data-insert="7">7</button>
+      <button class="key" data-insert="8">8</button>
+      <button class="key" data-insert="9">9</button>
+      <button class="key key--op" data-insert="/">÷</button>
+      <button class="key key--del" data-action="del">⌫</button>
+
+      <button class="key" data-insert="4">4</button>
+      <button class="key" data-insert="5">5</button>
+      <button class="key" data-insert="6">6</button>
+      <button class="key key--op" data-insert="*">×</button>
+      <button class="key" data-insert="(">(</button>
+
+      <button class="key" data-insert="1">1</button>
+      <button class="key" data-insert="2">2</button>
+      <button class="key" data-insert="3">3</button>
+      <button class="key key--op" data-insert="-">−</button>
+      <button class="key" data-insert=")">)</button>
+
+      <button class="key key--wide" data-insert="0">0</button>
+      <button class="key" data-insert=".">.</button>
+      <button class="key key--op" data-insert="+">+</button>
+      <button class="key key--enter" data-action="run">=</button>
+    </div>
+  </div>
+
+  <div class="home-row">
+    <button class="homebtn" title="on/off" data-action="power"></button>
+    <div class="home-label">CAS·OS</div>
+    <button class="homebtn homebtn--doc" title="docs" data-action="menu"></button>
+  </div>
+
+</div>
 
 <script src="cas-engine.js"></script>
 <script src="steps.js"></script>
@@ -63,8 +189,7 @@
 <script src="voice.js"></script>
 <script src="camera.js"></script>
 <script src="app.js"></script>
-
+<script src="ui.js"></script>
 <script src="sw.js"></script>
-
 </body>
 </html>
