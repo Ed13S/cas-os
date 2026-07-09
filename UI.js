@@ -63,6 +63,29 @@
     });
   });
 
+  // ---- function keys (solve, sin, cos, diff, int, ...) ----
+  // If the entry line already has something in it, wrap it in the
+  // function and run immediately (e.g. "x^2=4" + [solve] -> solve(x^2=4)).
+  // If the entry line is empty, just drop in "func(" so the person can
+  // type the argument themselves, same as a plain insert key.
+  function applyFunction(fnName) {
+    var field = document.getElementById("input");
+    if (!field) return;
+    var val = field.value.trim();
+    if (val) {
+      field.value = fnName + "(" + val + ")";
+      runEntry();
+    } else {
+      insertAtCursor(field, fnName + "(");
+    }
+  }
+
+  document.querySelectorAll(".key[data-fn]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      applyFunction(btn.dataset.fn);
+    });
+  });
+
   // ---- history: log each entry/answer pair on the scratchpad ----
   function logHistory(expr, answer) {
     var hist = document.getElementById("history");
@@ -87,7 +110,17 @@
     var expr = input.value.trim();
     if (!expr) return;
     if (typeof window.run === "function") {
-      window.run();
+      try {
+        window.run();
+      } catch (err) {
+        if (output) output.textContent = "Error: " + err.message;
+        console.error("run() threw:", err);
+        return;
+      }
+    } else {
+      if (output) output.textContent = "Error: run() is not defined (check app.js is loaded).";
+      console.error("window.run is not a function — app.js may not have loaded, or run() isn't declared at top level.");
+      return;
     }
     // give app.js a tick to populate #output, then archive the line
     setTimeout(function () {
