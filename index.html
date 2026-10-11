@@ -1,194 +1,50 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>CAS·OS</title>
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
-<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CAS OS — document calculator</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.js"></script>
+  <script defer src="app.js"></script>
 </head>
 <body>
-
-<div class="device">
-
-  <!-- brand strip -->
-  <div class="brand-strip">
-    <div class="brand">
-      <span class="brand-dot"></span>
-      <span class="brand-name">CAS<span class="brand-sep">·</span>OS</span>
-      <span class="badge">CAS</span>
-    </div>
-    <div class="status">
-      <span class="status-dot"></span>
-      <span id="clock" class="status-clock">--:--</span>
-      <span class="battery"><span class="battery-fill"></span></span>
-    </div>
-  </div>
-
-  <!-- screen -->
-  <div class="screen">
-    <div class="lcd">
-
-      <!-- doc tabs -->
-      <div class="tabbar" role="tablist">
-        <button class="tab active" data-tab="calc" role="tab">1:Calculate</button>
-        <button class="tab" data-tab="graph" role="tab">2:Graph</button>
-        <button class="tab" data-tab="write" role="tab">3:Handwrite</button>
-        <button class="tab" data-tab="voice" role="tab">4:Voice</button>
-        <button class="tab" data-tab="cam" role="tab">5:Camera</button>
-        <button class="tab" data-tab="ai" role="tab">6:AI</button>
+  <main class="calculator" aria-label="CAS OS document calculator">
+    <header class="case-top"><span class="logo">CAS OS</span><span>STUDENT · CAS</span></header>
+    <section class="screen-frame">
+      <div class="screen">
+        <header class="screenbar">
+          <button id="documents" class="icon-button" title="Documents">▤</button>
+          <strong id="documentName">My Document</strong>
+          <span id="saveStatus">Saved</span>
+          <button id="newPage" class="icon-button" title="New page">＋</button>
+        </header>
+        <div id="workspace" class="workspace"></div>
+        <footer class="screenhelp"><span id="contextHint">Enter evaluates • Tab adds a math row</span><span>◀ ▶ to switch page</span></footer>
       </div>
-
-      <div class="page-indicator">
-        <span class="dot active"></span><span class="dot"></span><span class="dot"></span>
-        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    </section>
+    <section class="controls">
+      <div class="touchpad"><button data-nav="up">▲</button><button data-nav="left">◀</button><button data-nav="select">●</button><button data-nav="right">▶</button><button data-nav="down">▼</button></div>
+      <div class="keys">
+        <button data-key="doc">doc</button><button data-key="menu">menu</button><button data-key="esc">esc</button><button data-key="del">del</button><button data-key="^">xⁿ</button><button data-key="sqrt(">√</button>
+        <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="/">÷</button><button data-key="sin(">sin</button><button data-key="cos(">cos</button>
+        <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="*">×</button><button data-key="tan(">tan</button><button data-key="(">(</button>
+        <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="-">−</button><button data-key=")">)</button><button data-key=",">,</button>
+        <button class="zero" data-key="0">0</button><button data-key=".">.</button><button data-key="+">+</button><button class="enter" data-key="enter">enter</button>
       </div>
-
-      <!-- CALCULATE -->
-      <section class="pane active" id="pane-calc">
-        <div class="scratchpad">
-          <div class="history" id="history"></div>
-          <div class="entry-line">
-            <span class="entry-caret">&gt;</span>
-            <input id="input" autocomplete="off" spellcheck="false"
-                   placeholder="solve x^2=4 | diff x^3 | int x^2 | plot x^2">
-          </div>
-        </div>
-        <pre id="output" class="answer-line"></pre>
-      </section>
-
-      <!-- GRAPH -->
-      <section class="pane" id="pane-graph">
-        <div class="pane-label">Graph</div>
-        <div id="graph" class="graph-box"></div>
-      </section>
-
-      <!-- HANDWRITING -->
-      <section class="pane" id="pane-write">
-        <div class="pane-label">Handwriting</div>
-        <canvas id="canvas" width="400" height="150"></canvas>
-        <div class="pane-actions">
-          <button class="softbtn" onclick="clearCanvas()">Clear</button>
-        </div>
-      </section>
-
-      <!-- VOICE -->
-      <section class="pane" id="pane-voice">
-        <div class="pane-label">Voice Input</div>
-        <div class="pane-actions">
-          <button class="softbtn softbtn--accent" onclick="startVoice()">● Start Voice</button>
-        </div>
-      </section>
-
-      <!-- CAMERA -->
-      <section class="pane" id="pane-cam">
-        <div class="pane-label">Camera OCR</div>
-        <input type="file" id="cameraInput" accept="image/*">
-        <div class="pane-actions">
-          <button class="softbtn" onclick="readCamera()">Read</button>
-        </div>
-        <pre id="cameraOut" class="answer-line"></pre>
-      </section>
-
-   <!-- AI -->
-<section class="pane" id="pane-ai">
-  <div class="pane-label">AI <span class="pane-sub">(Online)</span></div>
-  <textarea id="aiinput" spellcheck="false" placeholder="Ask AI"></textarea>
-  <div class="pane-actions">
-    <button class="softbtn softbtn--accent" onclick="askAI()">Ask AI</button>
-  </div>
-  <pre id="aiout" class="answer-line"></pre>
-</section>
-
-    </div>
-  </div>
-
-  <!-- soft key row -->
-  <div class="softkeys">
-    <button class="softkey" data-action="menu">menu</button>
-    <button class="softkey" data-action="prevtab">◀ tab</button>
-    <button class="softkey" data-action="nexttab">tab ▶</button>
-    <button class="softkey" data-action="del">del</button>
-    <button class="softkey softkey--wide" data-action="run">enter ⏎</button>
-  </div>
-
-  <!-- keypad -->
-  <div class="keypad">
-
-    <div class="navcluster">
-      <div class="touchpad">
-        <button class="navbtn nav-up" data-action="navup">▲</button>
-        <button class="navbtn nav-left" data-action="navleft">◀</button>
-        <button class="navbtn nav-center" data-action="navcenter">•</button>
-        <button class="navbtn nav-right" data-action="navright">▶</button>
-        <button class="navbtn nav-down" data-action="navdown">▼</button>
-      </div>
-    </div>
-
-    <div class="keys keys--fn">
-      <button class="key key--fn" data-insert="x^2">x²</button>
-      <button class="key key--fn" data-fn="sqrt">√(</button>
-      <button class="key key--fn" data-insert="^">x^</button>
-      <button class="key key--fn" data-fn="sin">sin</button>
-      <button class="key key--fn" data-fn="cos">cos</button>
-      <button class="key key--fn" data-fn="tan">tan</button>
-      <button class="key key--fn" data-insert="pi">π</button>
-      <button class="key key--fn" data-fn="ln">ln</button>
-      <button class="key key--fn" data-fn="log">log</button>
-      <button class="key key--fn" data-fn="diff">d/dx</button>
-      <button class="key key--fn" data-fn="int">∫</button>
-      <button class="key key--fn" data-fn="solve">solve</button>
-    </div>
-
-    <div class="keys keys--num">
-      <button class="key" data-insert="7">7</button>
-      <button class="key" data-insert="8">8</button>
-      <button class="key" data-insert="9">9</button>
-      <button class="key key--op" data-insert="/">÷</button>
-      <button class="key key--del" data-action="del">⌫</button>
-
-      <button class="key" data-insert="4">4</button>
-      <button class="key" data-insert="5">5</button>
-      <button class="key" data-insert="6">6</button>
-      <button class="key key--op" data-insert="*">×</button>
-      <button class="key" data-insert="(">(</button>
-
-      <button class="key" data-insert="1">1</button>
-      <button class="key" data-insert="2">2</button>
-      <button class="key" data-insert="3">3</button>
-      <button class="key key--op" data-insert="-">−</button>
-      <button class="key" data-insert=")">)</button>
-
-      <button class="key key--wide" data-insert="0">0</button>
-      <button class="key" data-insert=".">.</button>
-      <button class="key key--op" data-insert="+">+</button>
-      <button class="key key--enter" data-action="run">=</button>
-    </div>
-  </div>
-
-  <div class="home-row">
-    <button class="homebtn" title="on/off" data-action="power"></button>
-    <div class="home-label">CAS·OS</div>
-    <button class="homebtn homebtn--doc" title="docs" data-action="menu"></button>
-  </div>
-
-</div>
-
-<script src="cas-engine.js"></script>
-<script src="steps.js"></script>
-<script src="graph.js"></script>
-<script src="physics.js"></script>
-<script src="chemistry.js"></script>
-<script src="handwriting.js"></script>
-<script src="ai-mini.js"></script>
-<script src="voice.js"></script>
-<script src="camera.js"></script>
-<script src="app.js"></script>
-<script src="UI.js"></script>
-<script src="sw.js"></script>
+    </section>
+    <footer class="case-bottom">CAS OS • Browser document workspace</footer>
+  </main>
+  <dialog id="documentDialog">
+    <form method="dialog">
+      <h2>Documents</h2>
+      <label>Document name <input id="nameInput" maxlength="50"></label>
+      <div class="dialog-actions"><button value="cancel">Cancel</button><button id="rename">Rename</button></div>
+      <hr>
+      <div class="file-actions"><button id="exportDoc" type="button">Export CAS OS document</button><label class="file-label">Import document<input id="importDoc" type="file" accept=".casdoc,application/json"></label></div>
+      <p class="note">Exports use the open <code>.casdoc</code> format. They are not TI <code>.tns</code> files, which are proprietary.</p>
+    </form>
+  </dialog>
 </body>
 </html>
