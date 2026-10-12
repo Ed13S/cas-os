@@ -49,6 +49,16 @@ test("Lua document has exactly the layout Luna writes, and reads back to the sam
   assert.equal(TNS.luaFromDocument(await TNS.read(new Uint8Array(mine))).source, fx("hello.lua").toString("utf8"));
 });
 
+test("Python document has exactly the layout Luna writes", async () => {
+  const doc = TNS.newPythonDocument("hello.py", fx("hello.py").toString("utf8"));
+  const mine = Buffer.from(await TNS.write(doc));
+  assert.equal(layout(mine), layout(fx("py.tns")));
+  const back = await TNS.read(new Uint8Array(mine));
+  assert.deepEqual(back.files.map((f) => f.name), ["Document.xml", "Problem1.xml", "hello.py"]);
+  assert.equal(Buffer.from(back.files[2].data).toString("utf8"), fx("hello.py").toString("utf8"));
+  assert.match(back.files[1].text, /TI\.PythonEditor/);
+});
+
 test("XML problem has exactly the layout Luna writes", async () => {
   const doc = { version: "0500", files: [{ name: "Problem1.xml", kind: "xml", text: fx("Problem1.xml").toString("utf8"), mode: "full" }] };
   assert.equal(layout(Buffer.from(await TNS.write(doc))), layout(fx("problem.tns")));

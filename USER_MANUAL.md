@@ -313,7 +313,8 @@ Plain-English questions ("what is the derivative of x^2?") are sent to the AI Tu
 * Add page > "TI-Nspire file (.tns)" starts a Lua program you can edit and save as .tns.
 * Documents > "Open .tns" opens an existing file; Lua scripts and Problem XML are editable as text.
 * Documents > "Export this document as .tns" makes a Lua viewer of all pages for the calculator.
-* Parts made by TI's own software that cannot be decrypted are kept untouched (marked "locked").
+* Python (.py) and text files inside a .tns are editable, and "Add Python script" creates a CX II Python document.
+* Document.xml/Problem1.xml saved by TI's own software are encrypted with per-file keys, so they are kept untouched (marked "locked").
 * Native Calculator/Notes pages are not generated: that XML schema is undocumented.
 
 ---

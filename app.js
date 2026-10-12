@@ -137,7 +137,7 @@
         tnsParts(p)
           .map((x, i) => '<option value="' + i + '"' + (i === (p.sel || 0) ? " selected" : "") + ">" + esc(x.label) + "</option>")
           .join("") +
-        '</select></label><textarea id="tnsText" spellcheck="false"></textarea><div class="tnsbar"><button id="tnsSave">Save as .tns</button><button id="tnsAddLua">Add Lua script</button></div><output id="tnsOut">' +
+        '</select></label><textarea id="tnsText" spellcheck="false"></textarea><div class="tnsbar"><button id="tnsSave">Save as .tns</button><button id="tnsAddLua">Add Lua script</button><button id="tnsAddPy">Add Python script</button></div><output id="tnsOut">' +
         esc(p.status || "") +
         "</output><small>Lua scripts and Problem XML can be edited as text. Files made by TI\u2019s own software may be locked parts that are kept as they are.</small></section>";
     else
@@ -369,11 +369,12 @@
   function tnsParts(p) {
     const parts = [];
     if (p.lua != null) parts.push({ label: "Lua script", lua: true });
-    p.files.forEach((f, i) => parts.push({ label: f.name + (f.kind === "xml" ? "" : f.kind === "opaque" ? " (locked, kept as is)" : " (binary)"), index: i }));
+    p.files.forEach((f, i) => parts.push({ label: f.name + (f.kind === "xml" || f.kind === "text" ? "" : f.kind === "opaque" ? " (locked, kept as is)" : " (binary)"), index: i }));
     return parts;
   }
   function tnsDoc(p) {
-    const files = p.files.map((f) => (f.b64 ? { name: f.name, kind: f.kind, data: b64dec(f.b64), method: f.method, usize: f.usize } : { name: f.name, kind: f.kind, text: f.text, mode: f.mode, header: f.header }));
+    const files = p.files.map((f) => (f.kind === "text" ? { name: f.name, kind: "binary", data: new TextEncoder().encode(f.text) } : f.b64 ? { name: f.name, kind: f.kind, data: b64dec(f.b64), method: f.method, usize: f.usize } : { name: f.name, kind: f.kind, text: f.text, mode: f.mode, header: f.header }));
+    if (p.pyName && !files.some((f) => f.name === "Problem1.xml")) files.push(TNS.pythonProblemFile(p.pyName));
     let d = { version: p.version, files };
     if (p.lua != null) {
       const cur = TNS.luaFromDocument(d);
@@ -383,7 +384,8 @@
   }
   function tnsFromRead(name, d) {
     const p = { kind: "tns", title: name, version: d.version, sel: 0, status: "", lua: null, files: [] };
-    for (const f of d.files) p.files.push(f.kind === "xml" ? { name: f.name, kind: "xml", text: f.text, mode: f.mode, header: f.header } : { name: f.name, kind: f.kind, b64: b64enc(f.data), method: f.method });
+    const TEXTY = /\.(py|txt|lua|csv)$/i;
+    for (const f of d.files) p.files.push(f.kind === "binary" && TEXTY.test(f.name) ? { name: f.name, kind: "text", text: new TextDecoder().decode(f.data) } : f.kind === "xml" ? { name: f.name, kind: "xml", text: f.text, mode: f.mode, header: f.header } : { name: f.name, kind: f.kind, b64: b64enc(f.data), method: f.method });
     const lua = TNS.luaFromDocument(d);
     if (lua) p.lua = lua.source;
     return p;
@@ -400,8 +402,8 @@
         return;
       }
       const f = part.lua ? null : p.files[part.index];
-      box.disabled = !!f && f.kind !== "xml";
-      box.value = part.lua ? p.lua : f.kind === "xml" ? f.text : "(" + (f.kind === "opaque" ? "locked" : "binary") + " file, kept exactly as it is)";
+      box.disabled = !!f && f.kind !== "xml" && f.kind !== "text";
+      box.value = part.lua ? p.lua : f.kind === "xml" || f.kind === "text" ? f.text : "(" + (f.kind === "opaque" ? "locked" : "binary") + " file, kept exactly as it is)";
     };
     sel.onchange = () => {
       p.sel = +sel.value;
@@ -416,6 +418,17 @@
     $("#tnsAddLua").onclick = () => {
       if (p.lua == null) p.lua = TNS_STARTER;
       p.sel = 0;
+      render();
+    };
+    $("#tnsAddPy").onclick = () => {
+      if (!p.files.some((f) => /\.py$/i.test(f.name))) {
+        p.files.push({ name: "program.py", kind: "text", text: "from math import *\nprint(sqrt(2))\n" });
+        if (!p.files.some((f) => f.name === "Problem1.xml")) {
+          p.pyName = "program.py";
+          p.lua = null; // a document runs either a Lua script or a Python script
+        }
+      }
+      p.sel = tnsParts(p).findIndex((x) => !x.lua && /\.py$/i.test(p.files[x.index].name));
       render();
     };
     $("#tnsSave").onclick = async () => {

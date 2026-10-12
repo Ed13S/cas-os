@@ -304,7 +304,7 @@
       const name = ascii(unescape(encodeURIComponent(e.name))); // utf-8 bytes
       const magic = idx === 0 ? concat([ascii("*TIMLP"), ascii(version)]) : Uint8Array.of(0x50, 0x4b, 3, 4);
       const local = concat([magic, u16(20), u16(0), u16(e.method), u16(0), u16(0x20), u32(e.crc), u32(e.data.length), u32(e.usize), u16(name.length), u16(0), name, e.data]);
-      central.push(concat([Uint8Array.of(0x50, 0x4b, 1, 2), u16(0), u16(20), u16(0), u16(e.method), u16(0), u16(0x20), u32(e.crc), u32(e.data.length), u32(e.usize), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]));
+      central.push(concat([Uint8Array.of(0x50, 0x4b, 1, 2), u16(0), u16(20), u16(0), u16(e.method), u16(0), u16(0x20), u32(e.crc), u32(e.data.length), u32(e.usize), u16(name.length), u16(0), u16(0), u16(0), u16(e.method === 8 ? 1 : 0), u32(0), u32(offset), name]));
       parts.push(local);
       offset += local.length;
     });
@@ -464,6 +464,23 @@
     return { version: doc.version, files: [...keep, ...out.files] };
   }
 
+  // ---- Python documents (TI-Nspire CX II, OS 5.2+) ----------------------------------
+
+  const PY_HEADER =
+    'TIXC0100-1.0?><prob xmlns="urn:TI.Problem" ver="1.0" pbname=""><sym>\x0E\x01<card clay="0" h1="10000" h2="10000" w1="10000" w2="10000"><isDummyCard>0\x0E\x03<flag>0\x0E\x04<wdgt xmlns:py="urn:TI.PythonEditor" type="TI.PythonEditor" ver="1.0"><py:data><py:name>';
+  const PY_FOOTER = "\x0E\x07<py:dirf>-10000000\x0E\x08\x0E\x06<py:mFlags>1024\x0E\x09<py:value>10\x0E\x0A\x0E\x05\x0E\x02\x0E\x00";
+
+  /** The Problem1.xml that makes a document open the Python editor on `filename`. */
+  function pythonProblemFile(filename) {
+    if (!/^[\w .\-]{1,240}$/.test(filename) || /[<>&"]/.test(filename)) throw new Error("Use a simple file name for the Python script, e.g. program.py");
+    return { name: "Problem1.xml", kind: "xmlc", data: ascii(PY_HEADER + filename + PY_FOOTER) };
+  }
+
+  /** A document that opens a Python script (the script is stored as its own file). */
+  function newPythonDocument(filename, source) {
+    return { version: "0500", files: [pythonProblemFile(filename), { name: filename, kind: "binary", data: enc.encode(String(source)) }] };
+  }
+
   const luaString = (s) =>
     '"' +
     String(s)
@@ -520,5 +537,5 @@
     ].join("\n");
   }
 
-  return { read, write, setCodec, newLuaDocument, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
+  return { read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
 });
