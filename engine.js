@@ -95,7 +95,72 @@
     int: "integral",
     approx: "approx",
     float: "approx",
+    // everyday words and UK/US spellings students actually type
+    factorise: "factor",
+    factorize: "factor",
+    factorisation: "factor",
+    factorization: "factor",
+    factorising: "factor",
+    factorizing: "factor",
+    expansion: "expand",
+    multiply: "expand",
+    differentiate: "diff",
+    differentiation: "diff",
+    derive: "diff",
+    integration: "integral",
+    antiderivative: "integral",
+    simplification: "simplify",
+    solution: "solve",
+    solving: "solve",
+    numeric: "approx",
+    decimal: "approx",
   };
+
+  function editDistance(a, b) {
+    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i++)
+      for (let j = 1; j <= b.length; j++)
+      {
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 1); // swapped letters
+      }
+    return dp[a.length][b.length];
+  }
+
+  /** "factorise" -> "factor", "difrentiate" -> "diff"; null when it is not close to any command word. */
+  function resolveCommand(word) {
+    const w = word.toLowerCase();
+    if (COMMANDS[w]) return COMMANDS[w];
+    if (w.length < 4 || MATH_WORDS.has(w)) return null; // short words are variables / functions
+    let best = null,
+      bestD = 99;
+    for (const k of Object.keys(COMMANDS)) {
+      if (k.length < 4) continue;
+      const d = editDistance(w, k);
+      if (d < bestD) {
+        bestD = d;
+        best = COMMANDS[k];
+      }
+    }
+    return bestD <= (w.length >= 8 ? 2 : 1) ? best : null;
+  }
+
+  /**
+   * "what is the derivative of x^2", "can you factorise x^2-9", "please integrate x^2"
+   * -> "diff(x^2)", "factor(x^2-9)", "integral(x^2)". Only when what follows is plain maths,
+   * so real questions ("explain integration by parts") still go to the AI tutor.
+   */
+  function rewriteNatural(s) {
+    const m = /^(?:(?:please|can you|could you|help me|i need to|i want to|how (?:do|can) i|what is|what's|whats|find|calculate|work out|get)\s+)*(?:the\s+)?([a-z]+)\s+(?:of\s+)?(.+?)[?.!]*$/i.exec(s);
+    if (!m) return null;
+    const cmd = resolveCommand(m[1]);
+    if (!cmd || /^[a-z]+\(/i.test(s)) return null;
+    const rest = m[2].trim();
+    const tokens = rest.match(/[A-Za-z]+/g) || [];
+    if (!rest || !/^[\w\s^*\/+\-=().,]+$/.test(rest) || tokens.some((t) => t.length > 2 && !MATH_WORDS.has(t.toLowerCase()))) return null;
+    return cmd + "(" + rest + ")";
+  }
 
   const MATH_WORDS = new Set(
     ("sin cos tan sec csc cot asin acos atan sinh cosh tanh sqrt cbrt abs exp log ln log10 log2 pi e i inf " +
@@ -135,14 +200,14 @@
   function parseCommand(s) {
     const m = s.match(/^([A-Za-z]+)\s*(\(|\s)\s*([\s\S]*)$/);
     if (!m) return null;
-    const cmd = COMMANDS[m[1].toLowerCase()];
+    const cmd = resolveCommand(m[1]);
     if (!cmd) return null;
     let arg = m[3];
     if (m[2] === "(") {
       // function-call form. After bracket repair the arguments end with the final ")"
       arg = arg.replace(/\)\s*$/, "");
     }
-    return { cmd, argText: arg.trim(), call: m[2] === "(" };
+    return { cmd, argText: arg.trim(), call: m[2] === "(", word: m[1] };
   }
 
   function guessVariable(text) {
@@ -294,6 +359,12 @@
     let s = normalize(raw);
     if (!s) return { kind: "empty", output: "", notes };
 
+    const natural = rewriteNatural(s);
+    if (natural) {
+      notes.push("Read as: " + natural);
+      s = natural;
+    }
+
     if (looksLikeQuestion(s)) {
       return { kind: "question", output: "", question: s.replace(/^@ai\s*/i, ""), notes };
     }
@@ -307,6 +378,8 @@
       const cmd = parseCommand(s);
       let out;
       if (cmd) {
+        if (cmd.word.toLowerCase() !== cmd.cmd && !natural && (COMMANDS[cmd.word.toLowerCase()] !== cmd.cmd || cmd.word.toLowerCase() !== "d"))
+          notes.push("Read '" + cmd.word + "' as " + cmd.cmd + "()");
         switch (cmd.cmd) {
           case "solve":
             out = solveEquation(cmd.argText, deps);
@@ -347,5 +420,5 @@
     return deps.math.format(deps.math.evaluate(text), { precision: 14 });
   }
 
-  return { normalize, balanceBrackets, splitTop, looksLikeQuestion, parseCommand, calculate, friendlyError };
+  return { resolveCommand, rewriteNatural, normalize, balanceBrackets, splitTop, looksLikeQuestion, parseCommand, calculate, friendlyError };
 });

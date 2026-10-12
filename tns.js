@@ -481,6 +481,195 @@
     return { version: "0500", files: [pythonProblemFile(filename), { name: filename, kind: "binary", data: enc.encode(String(source)) }] };
   }
 
+  // ---- no-code Lua apps: a notes viewer and flashcards ------------------------------
+  //
+  // The Lua below is a fixed, tested "engine". Only the data tables at the top change, so
+  // text is wrapped to the screen width and long pages continue on the next screen
+  // automatically (the usual cause of text running off the bottom, or "only one page").
+
+  const THEMES = {
+    dark: { bg: [18, 25, 42], head: [70, 200, 255], body: [235, 240, 250], sub: [255, 200, 90], hint: [100, 255, 160] },
+    light: { bg: [255, 255, 255], head: [0, 80, 160], body: [25, 25, 25], sub: [170, 70, 0], hint: [0, 120, 60] },
+  };
+
+  const LUA_COMMON = `
+local FONT = "sansserif"
+local BODY, HEAD, LINE_H = 9, 12, 14
+local idx = 1
+
+local function setf(gc, style, size) gc:setFont(FONT, style, size) end
+local function color(gc, c) gc:setColorRGB(c[1], c[2], c[3]) end
+
+-- Break one long line into several lines that fit in maxw pixels.
+local function wrap(gc, text, maxw, rows, style)
+  setf(gc, style, BODY)
+  if text == "" then rows[#rows + 1] = { t = "", s = style }; return end
+  local line = ""
+  for word in string.gmatch(text, "%S+") do
+    local try = word
+    if line ~= "" then try = line .. " " .. word end
+    if gc:getStringWidth(try) <= maxw then
+      line = try
+    else
+      if line ~= "" then rows[#rows + 1] = { t = line, s = style }; line = "" end
+      -- a single word wider than the screen: cut it into pieces
+      while gc:getStringWidth(word) > maxw and #word > 1 do
+        local n = #word
+        while n > 1 and gc:getStringWidth(string.sub(word, 1, n)) > maxw do n = n - 1 end
+        rows[#rows + 1] = { t = string.sub(word, 1, n), s = style }
+        word = string.sub(word, n + 1)
+      end
+      line = word
+    end
+  end
+  if line ~= "" then rows[#rows + 1] = { t = line, s = style } end
+end
+
+local function fit(gc, text, maxw, style, size)
+  setf(gc, style, size)
+  while #text > 1 and gc:getStringWidth(text) > maxw do text = string.sub(text, 1, #text - 1) end
+  return text
+end
+`;
+
+  const LUA_NOTES = `
+local screens = nil
+
+-- Turn every page into one or more screens that fit the display.
+local function build(gc)
+  local w, h = platform.window:width(), platform.window:height()
+  local maxw = w - 20
+  local rowsPer = math.floor((h - 30 - 24) / LINE_H)
+  if rowsPer < 3 then rowsPer = 3 end
+  screens = {}
+  for p = 1, #PAGES do
+    local rows = {}
+    for _, src in ipairs(PAGES[p].lines) do
+      if string.sub(src, 1, 2) == "# " then wrap(gc, string.sub(src, 3), maxw, rows, "b")
+      else wrap(gc, src, maxw, rows, "r") end
+    end
+    local parts = math.max(1, math.ceil(#rows / rowsPer))
+    local part = 1
+    for first = 1, math.max(1, #rows), rowsPer do
+      local scr = { title = PAGES[p].title, part = part, parts = parts, rows = {} }
+      for i = first, math.min(first + rowsPer - 1, #rows) do scr.rows[#scr.rows + 1] = rows[i] end
+      screens[#screens + 1] = scr
+      part = part + 1
+    end
+  end
+  if idx > #screens then idx = 1 end
+end
+
+function on.paint(gc)
+  if not screens then build(gc) end
+  local w, h = platform.window:width(), platform.window:height()
+  color(gc, THEME.bg); gc:fillRect(0, 0, w, h)
+  local s = screens[idx]
+  local title = s.title
+  if s.parts > 1 then title = title .. " (" .. s.part .. "/" .. s.parts .. ")" end
+  color(gc, THEME.head)
+  gc:drawString(fit(gc, title, w - 20, "b", HEAD), 10, 6, "top")
+  local y = 30
+  for _, r in ipairs(s.rows) do
+    if r.s == "b" then setf(gc, "b", BODY); color(gc, THEME.sub)
+    else setf(gc, "r", BODY); color(gc, THEME.body) end
+    if r.t ~= "" then gc:drawString(r.t, 10, y, "top") end
+    y = y + LINE_H
+  end
+  setf(gc, "r", BODY); color(gc, THEME.hint)
+  gc:drawString("< > change page    " .. idx .. " of " .. #screens, 10, h - 18, "top")
+end
+
+local function go(d)
+  if not screens then return end
+  idx = (idx - 1 + d) % #screens + 1
+  platform.window:invalidate()
+end
+function on.arrowRight() go(1) end
+function on.arrowDown() go(1) end
+function on.enterKey() go(1) end
+function on.arrowLeft() go(-1) end
+function on.arrowUp() go(-1) end
+function on.escapeKey() idx = 1; platform.window:invalidate() end
+function on.resize() screens = nil end
+`;
+
+  const LUA_CARDS = `
+local show = false
+
+function on.paint(gc)
+  local w, h = platform.window:width(), platform.window:height()
+  local maxw = w - 20
+  local rowsPer = math.floor((h - 30 - 24) / LINE_H)
+  if rowsPer < 3 then rowsPer = 3 end
+  color(gc, THEME.bg); gc:fillRect(0, 0, w, h)
+  color(gc, THEME.head)
+  gc:drawString(fit(gc, TITLE .. "  " .. idx .. "/" .. #CARDS, w - 20, "b", HEAD), 10, 6, "top")
+  local card = CARDS[idx]
+  local rows = {}
+  wrap(gc, card.q, maxw, rows, "b")
+  if show then
+    rows[#rows + 1] = { t = "", s = "r" }
+    wrap(gc, card.a, maxw, rows, "r")
+  end
+  local y = 30
+  for i = 1, math.min(#rows, rowsPer) do
+    local r = rows[i]
+    if r.s == "b" then setf(gc, "b", BODY); color(gc, THEME.sub)
+    else setf(gc, "r", BODY); color(gc, THEME.body) end
+    if r.t ~= "" then gc:drawString(r.t, 10, y, "top") end
+    y = y + LINE_H
+  end
+  setf(gc, "r", BODY); color(gc, THEME.hint)
+  local hint = "enter: show answer    < > next card"
+  if show then hint = "enter: hide answer    < > next card" end
+  gc:drawString(hint, 10, h - 18, "top")
+end
+
+local function go(d)
+  idx = (idx - 1 + d) % #CARDS + 1
+  show = false
+  platform.window:invalidate()
+end
+local function toggle() show = not show; platform.window:invalidate() end
+function on.arrowRight() go(1) end
+function on.arrowLeft() go(-1) end
+function on.enterKey() toggle() end
+function on.arrowDown() toggle() end
+function on.arrowUp() toggle() end
+function on.escapeKey() idx = 1; show = false; platform.window:invalidate() end
+`;
+
+  const luaStr = (s) => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, "\\n").replace(/[\u0000-\u001f]/g, " ") + '"';
+
+  /**
+   * spec = { mode: "notes"|"cards", title, theme: "dark"|"light",
+   *          items: [ { a: "page title" | "question", b: "text, one line per line" | "answer" } ] }
+   * In notes, a line starting with "# " becomes a heading.
+   */
+  function luaViewer(spec) {
+    const th = THEMES[spec.theme] || THEMES.dark;
+    const rgb = (c) => "{" + c.join(", ") + "}";
+    const items = (spec.items || []).filter((it) => String(it.a || "").trim() || String(it.b || "").trim());
+    if (!items.length) throw new Error("Add at least one " + (spec.mode === "cards" ? "card" : "page") + " first.");
+    const head =
+      "-- " + String(spec.title || "CAS OS app").replace(/[\r\n]+/g, " ") + " (made with CAS OS)\n" +
+      "-- Edit the text between the quotes. Keep each line in quotes and followed by a comma.\n" +
+      "local TITLE = " + luaStr(spec.title || "Notes") + "\n" +
+      "local THEME = { bg = " + rgb(th.bg) + ", head = " + rgb(th.head) + ", body = " + rgb(th.body) + ", sub = " + rgb(th.sub) + ", hint = " + rgb(th.hint) + " }\n";
+    if (spec.mode === "cards") {
+      const cards = items.map((it) => "  { q = " + luaStr(String(it.a).trim()) + ", a = " + luaStr(String(it.b).trim()) + " },").join("\n");
+      return head + "local CARDS = {\n" + cards + "\n}\n" + LUA_COMMON + LUA_CARDS;
+    }
+    const pages = items
+      .map((it) => {
+        const lines = String(it.b || "").replace(/\r/g, "").split("\n").map((l) => "    " + luaStr(l.replace(/\s+$/, "")) + ",");
+        return "  { title = " + luaStr(String(it.a).trim() || "Page") + ", lines = {\n" + lines.join("\n") + "\n  } },";
+      })
+      .join("\n");
+    return head + "local PAGES = {\n" + pages + "\n}\n" + LUA_COMMON + LUA_NOTES;
+  }
+
   const luaString = (s) =>
     '"' +
     String(s)
@@ -537,5 +726,5 @@
     ].join("\n");
   }
 
-  return { read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
+  return { luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
 });

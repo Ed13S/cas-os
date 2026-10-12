@@ -65,12 +65,11 @@ test("algebra with variables", () => {
 
 test("natural-language questions are routed to the tutor", () => {
   for (const q of [
-    "what is the derivative of x^2",
     "how do I solve a quadratic?",
     "explain integration by parts",
     "solve for x",
     "@ai help me",
-    "can you factor x^2-9",
+    "can you explain factorising to me",
   ])
     assert.equal(run(q).kind, "question", q);
   for (const m of ["solve x^2=4", "diff x^3", "ax^2+bx+c", "sin x", "2x+3y", "mean([1,2,3])"])
@@ -82,4 +81,25 @@ test("errors are friendly", () => {
   assert.match(out("solve(=4)"), /Both sides/);
   assert.match(out("x^2=4"), /Use solve/);
   assert.equal(run("   ").kind, "empty");
+});
+
+test("synonyms, spellings and plain-English requests are understood", () => {
+  for (const [input, expected] of [
+    ["factorise x^2-9", "(x-3)*(x+3)"],
+    ["factorize(x^2-9", "(x-3)*(x+3)"],
+    ["differentiate x^3", "3*x^2"],
+    ["differentate x^3", "3*x^2"], // typo
+    ["integrate x^2", "1/3*x^3"],
+    ["expnad (x+1)^2", "x^2+2*x+1"], // typo
+    ["what is the derivative of x^2", "2*x"],
+    ["can you factor x^2-9", "(x-3)*(x+3)"],
+    ["please solve x^2=9", "x = -3 or x = 3"],
+    ["find the integral of x^2", "1/3*x^3"],
+  ]) {
+    const r = run(input);
+    assert.equal(r.output, expected, input);
+    assert.ok(r.notes.length >= 1, "explains what it understood: " + input);
+  }
+  assert.equal(E.resolveCommand("sin"), null);
+  assert.equal(E.resolveCommand("mean"), null);
 });

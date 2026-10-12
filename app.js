@@ -10,7 +10,9 @@
       ["spreadsheet", "Lists & Spreadsheet", "Table editor"],
       ["geometry", "Geometry", "Construction notes"],
       ["statistics", "Data & Statistics", "Data notes"],
-      ["tns", "TI-Nspire file (.tns)", "Create, open, edit and save .tns"],
+      ["tnsnotes", "Calculator app: Notes", "Type revision notes, get a .tns for your TI-Nspire (no coding)"],
+      ["tnscards", "Calculator app: Flashcards", "Question and answer cards for your TI-Nspire (no coding)"],
+      ["tns", "TI-Nspire file (advanced)", "Open and edit .tns files, Lua and Python code"],
     ],
     commands = [
       ["Solve", "solve("],
@@ -129,6 +131,7 @@
         '</textarea><button id="runPython">Run Python</button><pre id="pythonOut">' +
         esc(p.output || "") +
         "</pre></section>";
+    else if (p.kind === "tns" && p.builder) v += builderHtml(p);
     else if (p.kind === "tns")
       v +=
         '<section class="page tns"><h3>TI-Nspire file <small>' +
@@ -191,7 +194,7 @@
         }
       };
       $("#ask").onclick = askTutor;
-    } else if (p.kind === "tns") wireTns(p);
+    } else if (p.kind === "tns") (p.builder ? wireBuilder(p) : wireTns(p));
     else if (p.kind === "python") $("#runPython").onclick = runPython;
   }
   function evaluate(i) {
@@ -358,6 +361,180 @@
       o.textContent = "Python error: " + e.message;
     }
   }
+  // ---- no-code calculator apps (notes / flashcards) ------------------------------------
+  function builderHtml(p) {
+    const b = p.builder,
+      cards = b.mode === "cards",
+      sel = Math.min(b.sel || 0, b.items.length - 1),
+      it = b.items[sel];
+    const opt = (v, label) => '<option value="' + v + '"' + ((b.theme || "dark") === v ? " selected" : "") + ">" + label + "</option>";
+    return (
+      '<section class="page tns builder"><h3>' + (cards ? "Flashcards app" : "Notes app") + " <small>for your TI-Nspire - no coding needed</small></h3>" +
+      '<label>App title <input id="bTitle" value="' + esc(b.title) + '"></label>' +
+      '<label>Colours <select id="bTheme">' + opt("dark", "Dark") + opt("light", "Light (white)") + "</select></label>" +
+      '<nav class="bnav">' + b.items.map((x, i) => '<button data-bi="' + i + '" class="' + (i === sel ? "on" : "") + '">' + (i + 1) + "</button>").join("") + '<button id="bAdd">+ ' + (cards ? "Card" : "Page") + "</button></nav>" +
+      "<label>" + (cards ? "Question" : "Page title") + ' <input id="bA" value="' + esc(it.a) + '"></label>' +
+      "<label>" + (cards ? "Answer" : "Text") + ' <textarea id="bB" placeholder="' + (cards ? "The answer" : "Type one line per line. Start a line with # to make a heading. Long lines wrap and long pages continue on the next screen automatically.") + '">' + esc(it.b) + "</textarea></label>" +
+      '<div class="tnsbar"><button id="bPrev">Preview</button><button id="bDel">Delete this ' + (cards ? "card" : "page") + '</button><button id="bSave">Save as .tns</button><button id="bCode">Edit the code instead</button></div>' +
+      '<canvas id="bPreview" width="320" height="240" hidden></canvas>' +
+      '<div class="tnsbar" id="bPrevBar" hidden><button id="bPp">&#9664; Back</button><button id="bPn">Next &#9654;</button>' + (cards ? '<button id="bPe">Show / hide answer</button>' : "") + "</div>" +
+      '<output id="tnsOut">' + esc(p.status || "") + "</output>" +
+      "<small>Save it, then copy the .tns onto your calculator with the TI-Nspire software. On the calculator use the left/right arrow keys" + (cards ? " and Enter to show the answer." : " to change page.") + " This is an approximate preview.</small></section>"
+    );
+  }
+  function previewScreens(b, ctx) {
+    const maxw = 300,
+      rowsPer = Math.floor((240 - 30 - 24) / 14);
+    const font = (st) => (st === "b" ? "bold " : "") + "9px sans-serif";
+    const wrapJs = (text, style, rows) => {
+      ctx.font = font(style);
+      if (text === "") return void rows.push({ t: "", s: style });
+      let line = "";
+      for (const word of text.split(/\s+/).filter(Boolean)) {
+        const t = line ? line + " " + word : word;
+        if (ctx.measureText(t).width <= maxw) line = t;
+        else {
+          if (line) rows.push({ t: line, s: style });
+          line = word;
+        }
+      }
+      if (line) rows.push({ t: line, s: style });
+    };
+    const items = b.items.filter((x) => (x.a || "").trim() || (x.b || "").trim());
+    const out = [];
+    if (b.mode === "cards") {
+      for (const c of items) {
+        const q = [],
+          a = [];
+        wrapJs(c.a.trim(), "b", q);
+        wrapJs(c.b.trim(), "r", a);
+        out.push({ title: b.title, rows: q, ans: a });
+      }
+      return out;
+    }
+    for (const pg of items) {
+      const rows = [];
+      for (const l of (pg.b || "").replace(/\r/g, "").split("\n")) l.startsWith("# ") ? wrapJs(l.slice(2), "b", rows) : wrapJs(l, "r", rows);
+      const parts = Math.max(1, Math.ceil(rows.length / rowsPer));
+      for (let k = 0; k < parts; k++) out.push({ title: pg.a.trim() + (parts > 1 ? " (" + (k + 1) + "/" + parts + ")" : ""), rows: rows.slice(k * rowsPer, (k + 1) * rowsPer) });
+    }
+    return out;
+  }
+  function wireBuilder(p) {
+    const b = p.builder,
+      out = $("#tnsOut"),
+      cv = $("#bPreview"),
+      ctx = cv.getContext("2d");
+    b.sel = Math.min(b.sel || 0, b.items.length - 1);
+    const pv = { i: 0, ans: false };
+    const draw = () => {
+      if (cv.hidden) return;
+      const th = TNS.THEMES[b.theme] || TNS.THEMES.dark,
+        col = (c) => "rgb(" + c.join(",") + ")",
+        sc = previewScreens(b, ctx);
+      ctx.fillStyle = col(th.bg);
+      ctx.fillRect(0, 0, 320, 240);
+      if (!sc.length) return;
+      pv.i = ((pv.i % sc.length) + sc.length) % sc.length;
+      const s = sc[pv.i];
+      ctx.textBaseline = "top";
+      ctx.fillStyle = col(th.head);
+      ctx.font = "bold 12px sans-serif";
+      ctx.fillText(b.mode === "cards" ? b.title + "  " + (pv.i + 1) + "/" + sc.length : s.title, 10, 6);
+      const rows = b.mode === "cards" && pv.ans ? s.rows.concat([{ t: "", s: "r" }], s.ans) : s.rows;
+      rows.slice(0, 12).forEach((r, k) => {
+        ctx.font = (r.s === "b" ? "bold " : "") + "9px sans-serif";
+        ctx.fillStyle = col(r.s === "b" ? th.sub : th.body);
+        ctx.fillText(r.t, 10, 30 + k * 14);
+      });
+      ctx.font = "9px sans-serif";
+      ctx.fillStyle = col(th.hint);
+      ctx.fillText(b.mode === "cards" ? "enter: show/hide answer    < > next card" : "< > change page    " + (pv.i + 1) + " of " + sc.length, 10, 222);
+    };
+    $("#bTitle").oninput = (e) => {
+      b.title = e.target.value;
+      persist();
+      draw();
+    };
+    $("#bTheme").onchange = (e) => {
+      b.theme = e.target.value;
+      persist();
+      draw();
+    };
+    const cur = () => b.items[b.sel];
+    $("#bA").oninput = (e) => {
+      cur().a = e.target.value;
+      persist();
+      draw();
+    };
+    $("#bB").oninput = (e) => {
+      cur().b = e.target.value;
+      persist();
+      draw();
+    };
+    document.querySelectorAll("[data-bi]").forEach(
+      (x) =>
+        (x.onclick = () => {
+          b.sel = +x.dataset.bi;
+          render();
+        }),
+    );
+    $("#bAdd").onclick = () => {
+      b.items.push({ a: "", b: "" });
+      b.sel = b.items.length - 1;
+      render();
+    };
+    $("#bDel").onclick = () => {
+      if (b.items.length === 1) return (out.textContent = "Keep at least one " + (b.mode === "cards" ? "card." : "page."));
+      if (confirm("Delete this one?")) {
+        b.items.splice(b.sel, 1);
+        b.sel = Math.max(0, b.sel - 1);
+        render();
+      }
+    };
+    $("#bPrev").onclick = () => {
+      cv.hidden = $("#bPrevBar").hidden = !cv.hidden;
+      pv.i = b.sel;
+      pv.ans = false;
+      draw();
+    };
+    $("#bPp").onclick = () => {
+      pv.i--;
+      pv.ans = false;
+      draw();
+    };
+    $("#bPn").onclick = () => {
+      pv.i++;
+      pv.ans = false;
+      draw();
+    };
+    if ($("#bPe"))
+      $("#bPe").onclick = () => {
+        pv.ans = !pv.ans;
+        draw();
+      };
+    $("#bSave").onclick = async () => {
+      try {
+        const bytes = await TNS.write(TNS.newLuaDocument(TNS.luaViewer(b)));
+        download((b.title || "app").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_") + ".tns", bytes);
+        out.textContent = "Saved. Copy the .tns to your calculator.";
+      } catch (e) {
+        out.textContent = "Could not save: " + e.message;
+      }
+    };
+    $("#bCode").onclick = () => {
+      if (!confirm("Switch to the code view? You can then edit the Lua by hand, but the simple builder will no longer be used for this page.")) return;
+      try {
+        p.lua = TNS.luaViewer(b);
+        p.builder = null;
+        p.sel = 0;
+        render();
+      } catch (e) {
+        out.textContent = e.message;
+      }
+    };
+  }
+
   // ---- TI-Nspire (.tns) pages ------------------------------------------------------
   const TNS_STARTER =
     '-- A TI-Nspire Lua program. Save this page as .tns and open it on the calculator.\n' +
@@ -461,6 +638,20 @@
     if (k === "graph") p.formula = "sin(x)";
     if (k === "tutor") p = { kind: k, title: "AI Tutor", question: "", answer: "" };
     if (k === "python") p = { kind: k, title: "Python", code: 'print("Hello from CAS OS")', output: "" };
+    if (k === "tnsnotes" || k === "tnscards")
+      p = {
+        kind: "tns",
+        title: k === "tnsnotes" ? "Notes app" : "Flashcards app",
+        version: "0500",
+        files: [],
+        lua: null,
+        sel: 0,
+        status: "",
+        builder:
+          k === "tnsnotes"
+            ? { mode: "notes", title: "My notes", theme: "dark", sel: 0, items: [{ a: "INDEX LAWS", b: "# Multiply and divide\na^m * a^n = a^(m+n)\na^m / a^n = a^(m-n)\n\n# Powers\n(a^m)^n = a^(mn)\na^0 = 1" }] }
+            : { mode: "cards", title: "My flashcards", theme: "dark", sel: 0, items: [{ a: "What is a^0 ?", b: "1 (for any a that is not 0)" }] },
+      };
     if (k === "tns") p = { kind: k, title: "new.tns", version: "0500", files: [], lua: TNS_STARTER, sel: 0, status: "" };
     doc.pages.push(p);
     doc.active = doc.pages.length - 1;
@@ -570,6 +761,35 @@
           let x = activeInput();
           if (x) evaluate(+x.dataset.row);
         }
+      }),
+  );
+  // direction pad: up/down change row, left/right move the cursor, centre = enter.
+  // On pages that are not a calculator, left/right switch page.
+  document.querySelectorAll("[data-nav]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const d = b.dataset.nav,
+          p = page();
+        if (p.kind !== "calculator") {
+          const next = doc.active + (d === "right" ? 1 : d === "left" ? -1 : 0);
+          if (next !== doc.active && next >= 0 && next < doc.pages.length) {
+            doc.active = next;
+            selected = 0;
+            render();
+          }
+          return;
+        }
+        const x = activeInput();
+        if (d === "up" || d === "down") {
+          selected = Math.max(0, Math.min(p.rows.length - 1, selected + (d === "down" ? 1 : -1)));
+          render();
+          const row = document.querySelector('[data-row="' + selected + '"]');
+          if (row) row.focus();
+        } else if (x && (d === "left" || d === "right")) {
+          const at = Math.max(0, Math.min(x.value.length, (x.selectionStart == null ? x.value.length : x.selectionStart) + (d === "right" ? 1 : -1)));
+          x.focus();
+          x.setSelectionRange(at, at);
+        } else if (x && d === "center") evaluate(+x.dataset.row);
       }),
   );
   $("#commandTypes").innerHTML = commands
