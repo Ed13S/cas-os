@@ -2,7 +2,7 @@ async function askAI() {
   const prompt = document.getElementById("aiinput").value;
 
   // Hardcoded OpenRouter API key
-  const key = "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";
+  const key = ""; // REDACTED - the original key was leaked in git history and must be revoked
 
   try {
     // OpenRouter completion endpoint

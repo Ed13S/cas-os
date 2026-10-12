@@ -294,51 +294,27 @@ iPhone:
 
 # 6. COMMAND REFERENCE
 
-## Algebra
+Type into a calculator row and press Enter. Brackets left open are closed for you
+(`solve(x^2=4` works) and the row tells you it did so. Extra `)` is reported as an error.
 
 ```text
-solve x^2=4
-factor x^2-9
-expand (x+1)^3
-simplify 2x+3x
+solve(x^2=4)        solve(x^2=4,x)      solve x^2=4
+factor(x^2-9)       expand((x+2)^3)     simplify(2x+3x)
+diff(x^3)           diff(x^4,x,2)       (derivative, optional variable and order)
+integral(x^2)       integral(x^2,x,0,1) (definite integral with limits)
+approx(sqrt(2))     2+3*4               x^2+1
 ```
 
----
+Plain-English questions ("what is the derivative of x^2?") are sent to the AI Tutor
+(needs an OpenRouter key, entered on an AI Tutor page; kept for the browser tab only).
 
-## Calculus
+## TI-Nspire (.tns) files
 
-```text
-diff x^3
-int x^2
-limit sin(x)/x
-taylor e^x
-```
-
----
-
-## Graphing
-
-```text
-plot x^2
-plot sin(x)
-```
-
----
-
-## Physics
-
-```text
-physics F=m*a
-physics v=u+at
-```
-
----
-
-## Chemistry
-
-```text
-chem H2 + O2 -> H2O
-```
+* Add page > "TI-Nspire file (.tns)" starts a Lua program you can edit and save as .tns.
+* Documents > "Open .tns" opens an existing file; Lua scripts and Problem XML are editable as text.
+* Documents > "Export this document as .tns" makes a Lua viewer of all pages for the calculator.
+* Parts made by TI's own software that cannot be decrypted are kept untouched (marked "locked").
+* Native Calculator/Notes pages are not generated: that XML schema is undocumented.
 
 ---
 
@@ -346,8 +322,16 @@ chem H2 + O2 -> H2O
 
 ## Core Modules
 
-| File           | Purpose                |
-| -------------- | ---------------------- |
+| File             | Purpose                                   |
+| ---------------- | ----------------------------------------- |
+| index.html       | Main UI                                   |
+| app.js           | Pages, keypad, documents, AI tutor, .tns UI |
+| engine.js        | Input cleaning, bracket repair, CAS commands |
+| tns.js           | .tns reader/writer (+ tns-constants.js)   |
+| tests/           | `npm install && npm test`                 |
+| legacy/          | Old unused modules, kept for reference    |
+
+-------------- | ---------------------- |
 | index.html     | Main UI                |
 | cas-engine.js  | Symbolic engine        |
 | steps.js       | Explanation engine     |
