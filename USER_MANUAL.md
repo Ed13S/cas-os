@@ -310,7 +310,8 @@ Plain-English questions ("what is the derivative of x^2?") are sent to the AI Tu
 
 ## TI-Nspire (.tns) files
 
-* Add page > "TI-Nspire file (.tns)" starts a Lua program you can edit and save as .tns.
+* Add page > "Calculator app: Notes" or "Flashcards": type your content, Preview, Save as .tns. No coding needed; long text wraps and continues on the next screen by itself.
+* Add page > "TI-Nspire file (advanced)" starts a Lua program you can edit and save as .tns.
 * Documents > "Open .tns" opens an existing file; Lua scripts and Problem XML are editable as text.
 * Documents > "Export this document as .tns" makes a Lua viewer of all pages for the calculator.
 * Python (.py) and text files inside a .tns are editable, and "Add Python script" creates a CX II Python document.
