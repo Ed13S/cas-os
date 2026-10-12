@@ -572,6 +572,35 @@
         }
       }),
   );
+  // direction pad: up/down change row, left/right move the cursor, centre = enter.
+  // On pages that are not a calculator, left/right switch page.
+  document.querySelectorAll("[data-nav]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const d = b.dataset.nav,
+          p = page();
+        if (p.kind !== "calculator") {
+          const next = doc.active + (d === "right" ? 1 : d === "left" ? -1 : 0);
+          if (next !== doc.active && next >= 0 && next < doc.pages.length) {
+            doc.active = next;
+            selected = 0;
+            render();
+          }
+          return;
+        }
+        const x = activeInput();
+        if (d === "up" || d === "down") {
+          selected = Math.max(0, Math.min(p.rows.length - 1, selected + (d === "down" ? 1 : -1)));
+          render();
+          const row = document.querySelector('[data-row="' + selected + '"]');
+          if (row) row.focus();
+        } else if (x && (d === "left" || d === "right")) {
+          const at = Math.max(0, Math.min(x.value.length, (x.selectionStart == null ? x.value.length : x.selectionStart) + (d === "right" ? 1 : -1)));
+          x.focus();
+          x.setSelectionRange(at, at);
+        } else if (x && d === "center") evaluate(+x.dataset.row);
+      }),
+  );
   $("#commandTypes").innerHTML = commands
     .map((c) => '<button data-command="' + c[1] + '">' + c[0] + "</button>")
     .join("");
