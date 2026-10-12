@@ -1,0 +1,85 @@
+// Run with:  npm install && npm test      (uses Node's built-in test runner)
+const test = require("node:test");
+const assert = require("node:assert");
+const math = require("mathjs");
+const Algebrite = require("algebrite");
+const E = require("../engine.js");
+const run = (s) => E.calculate(s, { math, Algebrite });
+const out = (s) => run(s).output;
+
+test("plain arithmetic", () => {
+  assert.equal(out("2+3*4"), "14");
+  assert.equal(out("sqrt(16)"), "4");
+  assert.equal(out("2×3"), "6");
+  assert.equal(out("√9"), "3");
+});
+
+test("missing closing brackets are added and reported", () => {
+  for (const [input, expected] of [
+    ["sqrt(16", "4"],
+    ["2*(3+4", "14"],
+    ["sin(0", "0"],
+    ["approx(2+3", "5"],
+    ["factor(x^2-9", "(x-3)*(x+3)"],
+    ["solve(x^2=4", "x = -2 or x = 2"],
+    ["diff(x^3", "3*x^2"],
+    ["integral(x^2", "1/3*x^3"],
+    ["expand((x+2)^3", "x^3+6*x^2+12*x+8"],
+    ["((2+3)*(4+5", "45"],
+  ]) {
+    const r = run(input);
+    assert.equal(r.output, expected, input);
+    assert.ok(r.notes.length === 1 && /missing closing bracket/.test(r.notes[0]), "note for " + input);
+  }
+});
+
+test("extra or mismatched brackets are errors, not wrong answers", () => {
+  assert.match(out("2+3)"), /Extra '\)'/);
+  assert.match(out("(2+3]"), /mismatch/i);
+});
+
+test("solve", () => {
+  assert.equal(out("solve(x^2=4)"), "x = -2 or x = 2");
+  assert.equal(out("solve x^2=4"), "x = -2 or x = 2");
+  assert.equal(out("solve(x^2=4,x)"), "x = -2 or x = 2");
+  assert.equal(out("solve(x^2-2*x+1=0)"), "x = 1");
+  assert.equal(out("solve(2*x+6=0)"), "x = -3");
+  assert.equal(out("solve(t^2=9,t)"), "t = -3 or t = 3");
+  assert.match(out("solve(sin(x)=0.5)"), /x ≈ /); // numeric fallback
+});
+
+test("calculus", () => {
+  assert.equal(out("diff(x^3)"), "3*x^2");
+  assert.equal(out("diff x^3"), "3*x^2");
+  assert.equal(out("diff(sin(x)*x,x)"), "sin(x)+x*cos(x)");
+  assert.equal(out("diff(x^4,x,2)"), "12*x^2");
+  assert.equal(out("integral(x^2)"), "1/3*x^3");
+  assert.equal(out("integral(x^2,x,0,1)"), "1/3");
+});
+
+test("algebra with variables", () => {
+  assert.equal(out("x^2+1"), "x^2+1");
+  assert.equal(out("simplify(2x+3x)"), "5*x");
+  assert.equal(out("factor(x^2-9)"), "(x-3)*(x+3)");
+});
+
+test("natural-language questions are routed to the tutor", () => {
+  for (const q of [
+    "what is the derivative of x^2",
+    "how do I solve a quadratic?",
+    "explain integration by parts",
+    "solve for x",
+    "@ai help me",
+    "can you factor x^2-9",
+  ])
+    assert.equal(run(q).kind, "question", q);
+  for (const m of ["solve x^2=4", "diff x^3", "ax^2+bx+c", "sin x", "2x+3y", "mean([1,2,3])"])
+    assert.notEqual(run(m).kind, "question", m);
+});
+
+test("errors are friendly", () => {
+  assert.match(out("1/0"), /division by zero|Infinity/i);
+  assert.match(out("solve(=4)"), /Both sides/);
+  assert.match(out("x^2=4"), /Use solve/);
+  assert.equal(run("   ").kind, "empty");
+});

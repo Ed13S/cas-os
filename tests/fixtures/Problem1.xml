@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<prob xmlns="urn:TI.Problem" ver="1.0" pbname="Café">
+<sym></sym>
+<card clay="0" h1="10000" h2="10000" w1="10000" w2="10000"><isDummyCard>0</isDummyCard><flag>0</flag>
+<wdgt xmlns:np="urn:TI.Notepad" type="TI.Notepad" ver="2.0"><np:mFlags>1024</np:mFlags><np:value>3</np:value><np:fmtxt>x² ≠ 日本 😀</np:fmtxt></wdgt>
+</card>
+</prob>
