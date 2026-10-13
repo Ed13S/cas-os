@@ -116,3 +116,11 @@ test("calculator-menu commands", () => {
   assert.equal(c("approxFraction(0.75)"), "3/4");
   assert.match(c("stdDev({1,2,3,4}"), /^1\.29/);
 });
+
+test("log notation and trailing comma", () => {
+  const c = (q) => E.calculate(q, { math, Algebrite }).output;
+  assert.equal(c("solve(log_10(x)=2,)"), "x = 100");
+  assert.equal(c("log_2(8)"), "3");
+  assert.equal(c("log(1000)"), "3");
+  assert.equal(c("ln(e)"), "1");
+});

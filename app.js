@@ -102,11 +102,7 @@
           )
           .join("") +
         '<button id="addRow">+ Calculation</button></section>';
-    else if (p.kind === "graph")
-      v +=
-        '<section class="page"><h3>Graphs</h3><label>f(x) = <input id="formula" value="' +
-        esc(p.formula || "sin(x)") +
-        '"></label><button id="draw">Draw</button><canvas id="plot" width="640" height="300"></canvas><output id="graphOut"></output></section>';
+    else if (p.kind === "graph") v += GraphKit.html(p);
     else if (p.kind === "tutor")
       v +=
         '<section class="page"><h3>AI Tutor</h3><textarea id="question" placeholder="Ask a maths question">' +
@@ -174,7 +170,8 @@
         p.text = e.target.value;
         persist();
       };
-    else if (p.kind === "graph") $("#draw").onclick = drawGraph;
+    else if (p.kind === "graph")
+      GraphKit.mount({ page: p, math, prepare: CASEngine.prepare, persist, $ });
     else if (p.kind === "tutor") {
       $("#ask").onclick = askTutor;
     } else if (p.kind === "tns") (p.builder ? wireBuilder(p) : wireTns(p));
@@ -222,62 +219,6 @@
     page().rows[+x.dataset.row].input = x.value;
     x.focus();
     x.setSelectionRange(a + v.length, a + v.length);
-  }
-  function drawGraph() {
-    let p = page(),
-      ex = $("#formula").value;
-    p.formula = ex;
-    const fixed = CASEngine.balanceBrackets(CASEngine.normalize(ex));
-    if (fixed.error) {
-      $("#graphOut").textContent = "Graph error: " + fixed.error;
-      return;
-    }
-    ex = fixed.text;
-    let c = $("#plot"),
-      g = c.getContext("2d"),
-      w = c.width,
-      h = c.height,
-      k = 32;
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = "#fff";
-    g.fillRect(0, 0, w, h);
-    g.strokeStyle = "#d2dddd";
-    for (let x = 0; x < w; x += k) {
-      g.beginPath();
-      g.moveTo(x, 0);
-      g.lineTo(x, h);
-      g.stroke();
-    }
-    for (let y = 0; y < h; y += k) {
-      g.beginPath();
-      g.moveTo(0, y);
-      g.lineTo(w, y);
-      g.stroke();
-    }
-    g.strokeStyle = "#555";
-    g.beginPath();
-    g.moveTo(0, h / 2);
-    g.lineTo(w, h / 2);
-    g.moveTo(w / 2, 0);
-    g.lineTo(w / 2, h);
-    g.stroke();
-    try {
-      g.strokeStyle = "#087f73";
-      g.lineWidth = 2;
-      g.beginPath();
-      for (let px = 0; px < w; px++) {
-        let x = (px - w / 2) / k,
-          y = math.evaluate(ex, { x }),
-          py = h / 2 - y * k;
-        if (!Number.isFinite(py)) continue;
-        px ? g.lineTo(px, py) : g.moveTo(px, py);
-      }
-      g.stroke();
-      $("#graphOut").textContent = "Graph drawn";
-      persist();
-    } catch (e) {
-      $("#graphOut").textContent = "Graph error: " + e.message;
-    }
   }
   async function tutorRequest(q) {
     const key = getKey();

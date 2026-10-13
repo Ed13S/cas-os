@@ -80,6 +80,52 @@
     return out;
   }
 
+  /**
+   * Rewrite function calls named `name`: fn(argsArray) returns the replacement text.
+   * Handles nesting; arguments are rewritten first.
+   */
+  function mapCalls(s, name, fn) {
+    const re = new RegExp("(^|[^A-Za-z0-9_.])(" + name + ")\\s*\\(", "gi");
+    let out = "", pos = 0, m;
+    while ((m = re.exec(s))) {
+      const open = m.index + m[0].length - 1;
+      let depth = 0, end = -1;
+      for (let i = open; i < s.length; i++) {
+        if (OPEN.includes(s[i])) depth++;
+        else if (CLOSE.includes(s[i]) && --depth === 0) { end = i; break; }
+      }
+      if (end < 0) break;
+      const args = splitTop(s.slice(open + 1, end)).map((x) => mapCalls(x, name, fn));
+      out += s.slice(pos, m.index + m[1].length) + fn(args);
+      pos = end + 1;
+      re.lastIndex = pos;
+    }
+    return out + s.slice(pos);
+  }
+
+  function prepareMath(s) {
+    s = s.replace(/\blog\s*_\s*(\d+(?:\.\d+)?|[a-z])\s*\(/gi, "logb($1,");
+    s = mapCalls(s, "logb", (a) => "log((" + a.slice(1).join(",") + ")," + a[0] + ")");
+    s = mapCalls(s, "log", (a) => (a.length === 1 ? "log10(" + a[0] + ")" : "log(" + a.join(",") + ")"));
+    s = mapCalls(s, "ln", (a) => "log(" + a.join(",") + ")");
+    return s;
+  }
+
+  /** The same expression in Algebrite's dialect (log is natural, no bases). */
+  function toAlgebrite(s) {
+    s = mapCalls(s, "log10", (a) => "(log(" + a[0] + ")/log(10))");
+    s = mapCalls(s, "log2", (a) => "(log(" + a[0] + ")/log(2))");
+    s = mapCalls(s, "log", (a) => (a.length === 2 ? "(log(" + a[0] + ")/log(" + a[1] + "))" : "log(" + a[0] + ")"));
+    return s;
+  }
+
+  /** For the graph: clean up, close brackets, fix logs. Returns { text } or { error }. */
+  function prepare(raw) {
+    const bal = balanceBrackets(normalize(raw));
+    if (bal.error) return { error: bal.error };
+    return { text: prepareMath(bal.text) };
+  }
+
   // ---- 2. deciding what kind of input it is ----------------------------------
 
   const COMMANDS = {
@@ -175,7 +221,7 @@
   const MATH_WORDS = new Set(
     ("sin cos tan sec csc cot asin acos atan sinh cosh tanh sqrt cbrt abs exp log ln log10 log2 pi e i inf " +
       "floor ceil round min max mod gcd lcm det inv transpose sum prod mean median std var " +
-      "solve factor expand simplify diff derivative integral integrate int approx float d zeros nsolve completesquare limit fmin fmax tangentline arclen variance npr ncr stddev remainder randint approxfraction").split(" ")
+      "log10 log2 logb solve factor expand simplify diff derivative integral integrate int approx float d zeros nsolve completesquare limit fmin fmax tangentline arclen variance npr ncr stddev remainder randint approxfraction").split(" ")
   );
 
   const QUESTION_WORDS = new Set(
@@ -230,7 +276,7 @@
 
   function algebrite(A, expr) {
     if (A.clearall) A.clearall();
-    const out = String(A.run(expr)).trim();
+    const out = String(A.run(toAlgebrite(expr))).trim();
     if (/Stop:/.test(out)) {
       const reason = out.split("Stop:").pop().trim();
       const err = new Error(reason);
@@ -241,7 +287,7 @@
   }
 
   function tidy(out) {
-    return out.replace(/\*/g, "*").replace(/\.\.\.$/, "...");
+    return out.replace(/\blog\(/g, "ln(");
   }
 
   function formatRoots(raw, v) {
@@ -261,9 +307,8 @@
       return math.evaluate("(" + left + ")-(" + right + ")", scope);
     };
     const found = [];
-    const lo = -20,
-      hi = 20,
-      steps = 4000;
+    for (const [lo, hi, steps] of [[-20, 20, 4000], [-1000, 1000, 20000]]) scan(lo, hi, steps);
+    function scan(lo, hi, steps) {
     let prevX = lo,
       prevY = safe(f, lo);
     for (let i = 1; i <= steps; i++) {
@@ -287,6 +332,7 @@
       prevX = x;
       prevY = y;
     }
+    }
     const uniq = [];
     for (const r of found) if (!uniq.some((u) => Math.abs(u - r) < 1e-6)) uniq.push(r);
     return uniq.slice(0, 12);
@@ -307,7 +353,7 @@
     const parts = eq.split(/(?<![<>=!])=(?!=)/);
     const nums = numericRoots(deps.math, parts[0], parts[1] || "0", v);
     if (!nums.length) throw new Error("No solution found between -20 and 20.");
-    return nums.map((r) => v + " = " + deps.math.format(r, { precision: 8 })).join(" or ");
+    return nums.map((r) => v + " = " + niceNum(deps.math, r)).join(" or ");
   }
 
   function completeSquare(argText, deps) {
@@ -385,6 +431,10 @@
     return deps.math.format((sum * h) / 3, { precision: 10 });
   }
 
+  function niceNum(math, r) {
+    return Math.abs(r - Math.round(r)) < 1e-9 * Math.max(1, Math.abs(r)) ? String(Math.round(r)) : math.format(r, { precision: 8 });
+  }
+
   function solveEquation(argText, deps) {
     const args = splitTop(argText);
     const eq = args[0] || "";
@@ -404,8 +454,8 @@
         return v + " = " + exact + " ≈ " + deps.math.format(deps.math.evaluate(exact.replace(/ln\(/g, "log(")), { precision: 6 });
       }
       const nums = numericRoots(deps.math, left, right, v);
-      if (!nums.length) throw new Error("No solution found between -20 and 20 (and it is not a polynomial).");
-      return nums.map((r) => v + " ≈ " + deps.math.format(r, { precision: 8 })).join(" or ");
+      if (!nums.length) throw new Error("No solution found between -1000 and 1000 (and it is not a polynomial).");
+      return nums.map((r) => v + (Number.isInteger(+niceNum(deps.math, r)) ? " = " : " ≈ ") + niceNum(deps.math, r)).join(" or ");
     }
   }
 
@@ -471,8 +521,8 @@
 
     const bal = balanceBrackets(s);
     if (bal.error) return { kind: "error", output: "Error: " + bal.error, notes };
-    s = bal.text;
-    if (bal.added) notes.push("Added " + bal.added + " missing closing bracket" + (bal.added > 1 ? "s" : "") + ": " + s);
+    s = prepareMath(bal.text);
+    if (bal.added) notes.push("Added " + bal.added + " missing closing bracket" + (bal.added > 1 ? "s" : "") + ": " + bal.text);
 
     try {
       const cmd = parseCommand(s);
@@ -544,5 +594,5 @@
     return deps.math.format(deps.math.evaluate(text), { precision: 14 });
   }
 
-  return { resolveCommand, rewriteNatural, normalize, balanceBrackets, splitTop, looksLikeQuestion, parseCommand, calculate, friendlyError };
+  return { prepare, prepareMath, toAlgebrite, resolveCommand, rewriteNatural, normalize, balanceBrackets, splitTop, looksLikeQuestion, parseCommand, calculate, friendlyError };
 });
