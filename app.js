@@ -47,15 +47,7 @@
       }
       $("#name").textContent = doc.name || "My Document";
     },
-    getKey = () => {
-      const typed = $("#apiKey") && $("#apiKey").value.trim();
-      if (typed) return typed;
-      try {
-        return sessionStorage.getItem("cas-os-key") || "";
-      } catch (e) {
-        return "";
-      }
-    },
+    getKey = () => (window.CAS_CONFIG && window.CAS_CONFIG.openrouterKey) || "",
     download = (name, bytes, type) => {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([bytes], { type: type || "application/octet-stream" }));
@@ -117,9 +109,7 @@
         '"></label><button id="draw">Draw</button><canvas id="plot" width="640" height="300"></canvas><output id="graphOut"></output></section>';
     else if (p.kind === "tutor")
       v +=
-        '<section class="page"><h3>AI Tutor</h3><input id="apiKey" type="password" placeholder="OpenRouter API key (kept for this tab only)" value="' +
-        esc(getKey()) +
-        '"><textarea id="question" placeholder="Ask a maths question">' +
+        '<section class="page"><h3>AI Tutor</h3><textarea id="question" placeholder="Ask a maths question">' +
         esc(p.question || "") +
         '</textarea><button id="ask">Ask tutor</button><pre id="answer">' +
         esc(p.answer || "") +
@@ -186,13 +176,6 @@
       };
     else if (p.kind === "graph") $("#draw").onclick = drawGraph;
     else if (p.kind === "tutor") {
-      $("#apiKey").oninput = (e) => {
-        try {
-          sessionStorage.setItem("cas-os-key", e.target.value.trim());
-        } catch (err) {
-          /* private mode: key just lives in the field */
-        }
-      };
       $("#ask").onclick = askTutor;
     } else if (p.kind === "tns") (p.builder ? wireBuilder(p) : wireTns(p));
     else if (p.kind === "python") $("#runPython").onclick = runPython;
@@ -206,7 +189,7 @@
     r.note = res.notes.join(" ");
     if (res.kind === "question") {
       // plain English, not maths: hand it to the AI tutor instead of the maths parser
-      r.output = getKey() ? "Asking the AI tutor\u2026" : "That reads like a question. Add an OpenRouter key on an AI Tutor page (menu > AI help) to ask it here.";
+      r.output = getKey() ? "Asking the AI tutor\u2026" : "That reads like a question. The AI key has not been set in config.js yet.";
       if (getKey()) {
         const mine = r;
         tutorRequest(res.question)
@@ -298,7 +281,7 @@
   }
   async function tutorRequest(q) {
     const key = getKey();
-    if (!key) throw Error("Enter your OpenRouter API key first.");
+    if (!key) throw Error("No AI key is set. Put it in config.js.");
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
