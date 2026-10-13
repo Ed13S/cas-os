@@ -1,3 +1,3 @@
-// The AI tutor key. Paste your OpenRouter key between the quotes.
-// Anyone who opens the site can read this file, so use a key with a low spending limit.
+// Hardcoded AI tutor key: paste your NEW OpenRouter key between the quotes, then commit.
+// The site is public, so anyone can read this file. Set a low spending limit on the key.
 window.CAS_CONFIG = { openrouterKey: "" };
