@@ -14,14 +14,14 @@
       ["tnscards", "Calculator app: Flashcards", "Question and answer cards for your TI-Nspire (no coding)"],
       ["tns", "TI-Nspire file (advanced)", "Open and edit .tns files, Lua and Python code"],
     ],
-    commands = [
-      ["Solve", "solve("],
-      ["Factor", "factor("],
-      ["Expand", "expand("],
-      ["Derivative", "diff("],
-      ["Integral", "integral("],
-      ["Approximate", "approx("],
-      ["AI help", "@ai"],
+    MENU = [
+      ["Actions", [["Clear history", "@clear"], ["Ask AI tutor", "@ai"]]],
+      ["Number", [["Approximate to decimal", "approx("], ["Approximate to fraction", "approxFraction("], ["Factor", "factor("], ["Greatest common divisor", "gcd("], ["Least common multiple", "lcm("], ["Remainder", "remainder("], ["Factorial  !", "!"]]],
+      ["Algebra", [["Solve", "solve("], ["Numerical solve", "nSolve("], ["Zeros", "zeros("], ["Factor", "factor("], ["Expand", "expand("], ["Simplify", "simplify("], ["Complete the square", "completeSquare("]]],
+      ["Calculus", [["Derivative", "diff("], ["Integral", "integral("], ["Definite integral", "integral(f,x,a,b"], ["Limit", "limit("], ["Function minimum", "fMin("], ["Function maximum", "fMax("], ["Tangent line", "tangentLine("], ["Arc length", "arcLen("]]],
+      ["Probability", [["Factorial  !", "!"], ["Permutations nPr", "nPr("], ["Combinations nCr", "nCr("], ["Random integer", "randInt("]]],
+      ["Statistics", [["Mean", "mean({"], ["Median", "median({"], ["Standard deviation", "stdDev({"], ["Variance", "variance({"], ["Min", "min({"], ["Max", "max({"]]],
+      ["Matrix & Vector", [["Determinant", "det("], ["Inverse", "inv("], ["Transpose", "transpose("]]],
     ],
     blank = () => ({
       name: "My Document",
@@ -47,15 +47,7 @@
       }
       $("#name").textContent = doc.name || "My Document";
     },
-    getKey = () => {
-      const typed = $("#apiKey") && $("#apiKey").value.trim();
-      if (typed) return typed;
-      try {
-        return sessionStorage.getItem("cas-os-key") || "";
-      } catch (e) {
-        return "";
-      }
-    },
+    getKey = () => (window.CAS_CONFIG && window.CAS_CONFIG.openrouterKey) || "",
     download = (name, bytes, type) => {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([bytes], { type: type || "application/octet-stream" }));
@@ -117,9 +109,7 @@
         '"></label><button id="draw">Draw</button><canvas id="plot" width="640" height="300"></canvas><output id="graphOut"></output></section>';
     else if (p.kind === "tutor")
       v +=
-        '<section class="page"><h3>AI Tutor</h3><input id="apiKey" type="password" placeholder="OpenRouter API key (kept for this tab only)" value="' +
-        esc(getKey()) +
-        '"><textarea id="question" placeholder="Ask a maths question">' +
+        '<section class="page"><h3>AI Tutor</h3><textarea id="question" placeholder="Ask a maths question">' +
         esc(p.question || "") +
         '</textarea><button id="ask">Ask tutor</button><pre id="answer">' +
         esc(p.answer || "") +
@@ -186,13 +176,6 @@
       };
     else if (p.kind === "graph") $("#draw").onclick = drawGraph;
     else if (p.kind === "tutor") {
-      $("#apiKey").oninput = (e) => {
-        try {
-          sessionStorage.setItem("cas-os-key", e.target.value.trim());
-        } catch (err) {
-          /* private mode: key just lives in the field */
-        }
-      };
       $("#ask").onclick = askTutor;
     } else if (p.kind === "tns") (p.builder ? wireBuilder(p) : wireTns(p));
     else if (p.kind === "python") $("#runPython").onclick = runPython;
@@ -206,7 +189,7 @@
     r.note = res.notes.join(" ");
     if (res.kind === "question") {
       // plain English, not maths: hand it to the AI tutor instead of the maths parser
-      r.output = getKey() ? "Asking the AI tutor\u2026" : "That reads like a question. Add an OpenRouter key on an AI Tutor page (menu > AI help) to ask it here.";
+      r.output = getKey() ? "Asking the AI tutor\u2026" : "That reads like a question. The AI key has not been set in config.js yet.";
       if (getKey()) {
         const mine = r;
         tutorRequest(res.question)
@@ -298,7 +281,7 @@
   }
   async function tutorRequest(q) {
     const key = getKey();
-    if (!key) throw Error("Enter your OpenRouter API key first.");
+    if (!key) throw Error("No AI key is set. Put it in config.js.");
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
@@ -754,7 +737,7 @@
       (x.onclick = () => {
         let a = x.dataset.action;
         if (a === "docs") $("#docs").click();
-        else if (a === "menu") $("#commands").showModal();
+        else if (a === "menu") openMenu();
         else if (a === "clear") $("#clear").click();
         else if (a === "del") insert("del");
         else if (a === "enter") {
@@ -792,23 +775,38 @@
         } else if (x && d === "center") evaluate(+x.dataset.row);
       }),
   );
-  $("#commandTypes").innerHTML = commands
-    .map((c) => '<button data-command="' + c[1] + '">' + c[0] + "</button>")
-    .join("");
-  document.querySelectorAll("[data-command]").forEach(
-    (x) =>
-      (x.onclick = () => {
-        let v = x.dataset.command;
-        $("#commands").close();
-        if (v === "@ai") {
-          let t = doc.pages.findIndex((p) => p.kind === "tutor");
-          if (t < 0) addPage("tutor");
-          else {
-            doc.active = t;
-            render();
-          }
-        } else insert(v);
-      }),
-  );
+  function showMenu(cat) {
+    const box = $("#commandTypes");
+    const items = cat === undefined ? MENU.map((m, n) => [(n + 1) + ": " + m[0], n]) : MENU[cat][1].map((m, n) => [m[0], m[1]]);
+    box.innerHTML =
+      (cat === undefined ? "" : '<button data-back="1">◀ Back</button>') +
+      items.map((c, n) => '<button data-i="' + n + '">' + (cat === undefined ? c[0] : (n + 1) + ": " + c[0]) + "</button>").join("");
+    box.querySelectorAll("[data-i]").forEach(
+      (x) =>
+        (x.onclick = () => {
+          const n = +x.dataset.i;
+          if (cat === undefined) return showMenu(n);
+          const v = MENU[cat][1][n][1];
+          $("#commands").close();
+          if (v === "@ai") {
+            let t = doc.pages.findIndex((p) => p.kind === "tutor");
+            if (t < 0) addPage("tutor");
+            else {
+              doc.active = t;
+              render();
+            }
+          } else if (v === "@clear") $("#clear").click();
+          else insert(v);
+        }),
+    );
+    const back = box.querySelector("[data-back]");
+    if (back) back.onclick = () => showMenu();
+  }
+  $("#commands").addEventListener("show", () => showMenu());
+  const openMenu = () => {
+    showMenu();
+    $("#commands").showModal();
+  };
+  window.__openMenu = openMenu;
   render();
 })();

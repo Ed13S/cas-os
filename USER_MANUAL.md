@@ -426,3 +426,7 @@ All trademarks belong to their respective owners.
 ---
 
 # END OF MANUAL
+
+## Menu (mirrors the TI-Nspire CX II CAS)
+
+Press **menu** for Actions, Number, Algebra, Calculus, Probability, Statistics and Matrix & Vector, in the same order as the real calculator. Picking an item types its command, e.g. `solve(`. Extra commands: `zeros`, `nSolve`, `completeSquare`, `limit` (numeric), `fMin`/`fMax` (searched from -50 to 50), `tangentLine`, `arcLen`, `gcd`, `lcm`, `remainder`, `nPr`, `nCr`, `randInt`, `approxFraction`, `stdDev`, and `{1,2,3}` lists. `solve(10^x=18,x)` gives `x = ln(18)/ln(10) ≈ 1.25527`. Not included: Finance, Programs and anything the calculator does that CAS OS cannot.

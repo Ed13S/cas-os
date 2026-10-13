@@ -103,3 +103,16 @@ test("synonyms, spellings and plain-English requests are understood", () => {
   assert.equal(E.resolveCommand("sin"), null);
   assert.equal(E.resolveCommand("mean"), null);
 });
+
+test("calculator-menu commands", () => {
+  const math = require("mathjs"), Algebrite = require("algebrite");
+  const c = (q) => E.calculate(q, { math, Algebrite }).output;
+  assert.equal(c("solve(10^x=18,x)"), "x = ln(18)/ln(10) ≈ 1.25527");
+  assert.equal(c("zeros(x^2-4,x)"), "x = -2 or x = 2");
+  assert.equal(c("completeSquare(x^2+6x+1,x)"), "(x+3)^2-8");
+  assert.equal(c("limit(sin(x)/x,x,0)"), "1");
+  assert.equal(c("nCr(5,2)"), "10");
+  assert.equal(c("remainder(17,5)"), "2");
+  assert.equal(c("approxFraction(0.75)"), "3/4");
+  assert.match(c("stdDev({1,2,3,4}"), /^1\.29/);
+});
