@@ -114,6 +114,16 @@
     solving: "solve",
     numeric: "approx",
     decimal: "approx",
+    // calculator-menu commands
+    zeros: "solve",
+    zero: "solve",
+    nsolve: "nsolve",
+    completesquare: "completesquare",
+    limit: "limit",
+    fmin: "fmin",
+    fmax: "fmax",
+    tangentline: "tangent",
+    arclen: "arclen",
   };
 
   function editDistance(a, b) {
@@ -165,7 +175,7 @@
   const MATH_WORDS = new Set(
     ("sin cos tan sec csc cot asin acos atan sinh cosh tanh sqrt cbrt abs exp log ln log10 log2 pi e i inf " +
       "floor ceil round min max mod gcd lcm det inv transpose sum prod mean median std var " +
-      "solve factor expand simplify diff derivative integral integrate int approx float d").split(" ")
+      "solve factor expand simplify diff derivative integral integrate int approx float d zeros nsolve completesquare limit fmin fmax tangentline arclen variance npr ncr stddev remainder randint approxfraction").split(" ")
   );
 
   const QUESTION_WORDS = new Set(
@@ -290,6 +300,91 @@
     }
   }
 
+  function nSolve(argText, deps) {
+    const args = splitTop(argText);
+    const eq = args[0] || "";
+    const v = args[1] || guessVariable(eq);
+    const parts = eq.split(/(?<![<>=!])=(?!=)/);
+    const nums = numericRoots(deps.math, parts[0], parts[1] || "0", v);
+    if (!nums.length) throw new Error("No solution found between -20 and 20.");
+    return nums.map((r) => v + " = " + deps.math.format(r, { precision: 8 })).join(" or ");
+  }
+
+  function completeSquare(argText, deps) {
+    const args = splitTop(argText);
+    const v = args[1] || guessVariable(args[0] || "");
+    const co = [2, 1, 0].map((n) => algebrite(deps.Algebrite, "coeff(" + args[0] + "," + v + "," + n + ")"));
+    const [a, b, c] = co;
+    const h = algebrite(deps.Algebrite, "(" + b + ")/(2*(" + a + "))");
+    const k = algebrite(deps.Algebrite, "(" + c + ")-(" + b + ")^2/(4*(" + a + "))");
+    const lead = a === "1" ? "" : a + "*";
+    const inner = h === "0" ? v : "(" + v + (h[0] === "-" ? h : "+" + h) + ")";
+    return lead + inner + "^2" + (k === "0" ? "" : k[0] === "-" ? k : "+" + k);
+  }
+
+  function limitOf(argText, deps) {
+    const args = splitTop(argText);
+    if (args.length < 3) throw new Error("Example: limit(sin(x)/x,x,0)");
+    const [f, v, at] = args;
+    const dir = args[3] ? parseFloat(args[3]) : 0;
+    const a = deps.math.evaluate(at);
+    const ev = (x) => deps.math.evaluate(f, { [v]: x });
+    const h = [1e-6, 1e-8];
+    const side = (sg) => {
+      const y1 = ev(a + sg * h[0]), y2 = ev(a + sg * h[1]);
+      if (Math.abs(y1) > 1e6 || Math.abs(y2) > 1e6) return sg * (y2 > 0 ? 1 : -1) < 0 && false ? NaN : y2 > 0 ? Infinity : -Infinity;
+      return Math.abs(y1 - y2) < 1e-4 ? y2 : NaN;
+    };
+    const l = dir >= 0 ? side(1) : NaN, r = dir <= 0 ? side(-1) : NaN;
+    const vals = dir === 0 ? [l, r] : dir > 0 ? [l] : [r];
+    if (vals.some((x) => Number.isNaN(x)) || (vals.length === 2 && Math.abs(vals[0] - vals[1]) > 1e-4 && vals[0] !== vals[1])) throw new Error("The limit does not exist (or could not be found numerically).");
+    const y = vals[0];
+    if (y === Infinity) return "∞";
+    if (y === -Infinity) return "-∞";
+    return String(Math.round(y * 1e6) / 1e6);
+  }
+
+  function extremum(argText, deps, sign) {
+    const args = splitTop(argText);
+    const f = args[0], v = args[1] || guessVariable(f || "");
+    const ev = (x) => deps.math.evaluate(f, { [v]: x });
+    let best = null;
+    for (let x = -50; x <= 50; x += 0.01) {
+      const y = safe(ev, x);
+      if (Number.isFinite(y) && (best === null || sign * y > sign * best.y)) best = { x, y };
+    }
+    if (!best) throw new Error("No value found.");
+    for (let k = 0; k < 40; k++) {
+      const step = 0.01 / Math.pow(2, k);
+      for (const x of [best.x - step, best.x + step]) {
+        const y = safe(ev, x);
+        if (Number.isFinite(y) && sign * y > sign * best.y) best = { x, y };
+      }
+    }
+    return v + " = " + deps.math.format(best.x, { precision: 6 }) + ", value = " + deps.math.format(best.y, { precision: 8 }) + " (searched -50 to 50)";
+  }
+
+  function tangent(argText, deps) {
+    const args = splitTop(argText);
+    const [f, v, at] = args;
+    if (args.length < 3) throw new Error("Example: tangentLine(x^2,x,3)");
+    const y0 = algebrite(deps.Algebrite, "eval(" + f + "," + v + "," + at + ")");
+    const m = algebrite(deps.Algebrite, "eval(d(" + f + "," + v + ")," + v + "," + at + ")");
+    return algebrite(deps.Algebrite, "simplify(" + m + "*(" + v + "-(" + at + "))+" + y0 + ")");
+  }
+
+  function arcLen(argText, deps) {
+    const args = splitTop(argText);
+    if (args.length < 4) throw new Error("Example: arcLen(x^2,x,0,1)");
+    const [f, v, a, b] = args;
+    const df = algebrite(deps.Algebrite, "d(" + f + "," + v + ")");
+    const g = (x) => Math.sqrt(1 + Math.pow(deps.math.evaluate(df, { [v]: x }), 2));
+    const lo = deps.math.evaluate(a), hi = deps.math.evaluate(b), n = 2000, h = (hi - lo) / n;
+    let sum = g(lo) + g(hi);
+    for (let i = 1; i < n; i++) sum += g(lo + i * h) * (i % 2 ? 4 : 2);
+    return deps.math.format((sum * h) / 3, { precision: 10 });
+  }
+
   function solveEquation(argText, deps) {
     const args = splitTop(argText);
     const eq = args[0] || "";
@@ -303,6 +398,11 @@
       return formatRoots(algebrite(deps.Algebrite, "roots((" + left + ")-(" + right + ")," + v + ")"), v);
     } catch (e) {
       if (!e.fromAlgebrite || !deps.math) throw e;
+      const ex = /^\s*([\w.]+)\s*\^\s*\(?\s*([A-Za-z])\s*\)?\s*$/.exec(left);
+      if (ex && ex[2] === v && /^[\d.]+$/.test(right.trim()) && /^[\d.]+$/.test(ex[1])) {
+        const exact = "ln(" + right.trim() + ")/ln(" + ex[1] + ")";
+        return v + " = " + exact + " ≈ " + deps.math.format(deps.math.evaluate(exact.replace(/ln\(/g, "log(")), { precision: 6 });
+      }
       const nums = numericRoots(deps.math, left, right, v);
       if (!nums.length) throw new Error("No solution found between -20 and 20 (and it is not a polynomial).");
       return nums.map((r) => v + " ≈ " + deps.math.format(r, { precision: 8 })).join(" or ");
@@ -399,6 +499,27 @@
           case "approx":
             out = numeric(cmd.argText, deps);
             break;
+          case "nsolve":
+            out = nSolve(cmd.argText, deps);
+            break;
+          case "completesquare":
+            out = completeSquare(cmd.argText, deps);
+            break;
+          case "limit":
+            out = limitOf(cmd.argText, deps);
+            break;
+          case "fmin":
+            out = extremum(cmd.argText, deps, -1);
+            break;
+          case "fmax":
+            out = extremum(cmd.argText, deps, 1);
+            break;
+          case "tangent":
+            out = tangent(cmd.argText, deps);
+            break;
+          case "arclen":
+            out = arcLen(cmd.argText, deps);
+            break;
         }
       } else if (/(^|[^<>=!])=([^=]|$)/.test(s)) {
         throw new Error("That is an equation. Use solve(" + s + ",x) to solve it.");
@@ -416,7 +537,10 @@
     }
   }
 
+  const FN_ALIASES = [[/\bnPr\(/g, "permutations("], [/\bnCr\(/g, "combinations("], [/\bstdDev\(/g, "std("], [/\bremainder\(/g, "mod("], [/\bapproxFraction\(/g, "fraction("], [/\bfactorial\(/g, "factorial("], [/\{/g, "["], [/\}/g, "]"]];
   function numeric_strict(text, deps) {
+    for (const [re, to] of FN_ALIASES) text = text.replace(re, to);
+    text = text.replace(/\brandInt\(([^,()]+),([^()]+)\)/g, "randomInt($1,($2)+1)");
     return deps.math.format(deps.math.evaluate(text), { precision: 14 });
   }
 

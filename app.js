@@ -14,14 +14,14 @@
       ["tnscards", "Calculator app: Flashcards", "Question and answer cards for your TI-Nspire (no coding)"],
       ["tns", "TI-Nspire file (advanced)", "Open and edit .tns files, Lua and Python code"],
     ],
-    commands = [
-      ["Solve", "solve("],
-      ["Factor", "factor("],
-      ["Expand", "expand("],
-      ["Derivative", "diff("],
-      ["Integral", "integral("],
-      ["Approximate", "approx("],
-      ["AI help", "@ai"],
+    MENU = [
+      ["Actions", [["Clear history", "@clear"], ["Ask AI tutor", "@ai"]]],
+      ["Number", [["Approximate to decimal", "approx("], ["Approximate to fraction", "approxFraction("], ["Factor", "factor("], ["Greatest common divisor", "gcd("], ["Least common multiple", "lcm("], ["Remainder", "remainder("], ["Factorial  !", "!"]]],
+      ["Algebra", [["Solve", "solve("], ["Numerical solve", "nSolve("], ["Zeros", "zeros("], ["Factor", "factor("], ["Expand", "expand("], ["Simplify", "simplify("], ["Complete the square", "completeSquare("]]],
+      ["Calculus", [["Derivative", "diff("], ["Integral", "integral("], ["Definite integral", "integral(f,x,a,b"], ["Limit", "limit("], ["Function minimum", "fMin("], ["Function maximum", "fMax("], ["Tangent line", "tangentLine("], ["Arc length", "arcLen("]]],
+      ["Probability", [["Factorial  !", "!"], ["Permutations nPr", "nPr("], ["Combinations nCr", "nCr("], ["Random integer", "randInt("]]],
+      ["Statistics", [["Mean", "mean({"], ["Median", "median({"], ["Standard deviation", "stdDev({"], ["Variance", "variance({"], ["Min", "min({"], ["Max", "max({"]]],
+      ["Matrix & Vector", [["Determinant", "det("], ["Inverse", "inv("], ["Transpose", "transpose("]]],
     ],
     blank = () => ({
       name: "My Document",
@@ -754,7 +754,7 @@
       (x.onclick = () => {
         let a = x.dataset.action;
         if (a === "docs") $("#docs").click();
-        else if (a === "menu") $("#commands").showModal();
+        else if (a === "menu") openMenu();
         else if (a === "clear") $("#clear").click();
         else if (a === "del") insert("del");
         else if (a === "enter") {
@@ -792,23 +792,38 @@
         } else if (x && d === "center") evaluate(+x.dataset.row);
       }),
   );
-  $("#commandTypes").innerHTML = commands
-    .map((c) => '<button data-command="' + c[1] + '">' + c[0] + "</button>")
-    .join("");
-  document.querySelectorAll("[data-command]").forEach(
-    (x) =>
-      (x.onclick = () => {
-        let v = x.dataset.command;
-        $("#commands").close();
-        if (v === "@ai") {
-          let t = doc.pages.findIndex((p) => p.kind === "tutor");
-          if (t < 0) addPage("tutor");
-          else {
-            doc.active = t;
-            render();
-          }
-        } else insert(v);
-      }),
-  );
+  function showMenu(cat) {
+    const box = $("#commandTypes");
+    const items = cat === undefined ? MENU.map((m, n) => [(n + 1) + ": " + m[0], n]) : MENU[cat][1].map((m, n) => [m[0], m[1]]);
+    box.innerHTML =
+      (cat === undefined ? "" : '<button data-back="1">◀ Back</button>') +
+      items.map((c, n) => '<button data-i="' + n + '">' + (cat === undefined ? c[0] : (n + 1) + ": " + c[0]) + "</button>").join("");
+    box.querySelectorAll("[data-i]").forEach(
+      (x) =>
+        (x.onclick = () => {
+          const n = +x.dataset.i;
+          if (cat === undefined) return showMenu(n);
+          const v = MENU[cat][1][n][1];
+          $("#commands").close();
+          if (v === "@ai") {
+            let t = doc.pages.findIndex((p) => p.kind === "tutor");
+            if (t < 0) addPage("tutor");
+            else {
+              doc.active = t;
+              render();
+            }
+          } else if (v === "@clear") $("#clear").click();
+          else insert(v);
+        }),
+    );
+    const back = box.querySelector("[data-back]");
+    if (back) back.onclick = () => showMenu();
+  }
+  $("#commands").addEventListener("show", () => showMenu());
+  const openMenu = () => {
+    showMenu();
+    $("#commands").showModal();
+  };
+  window.__openMenu = openMenu;
   render();
 })();
