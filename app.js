@@ -154,6 +154,7 @@
       document.querySelectorAll("[data-row]").forEach((x) => {
         x.onfocus = () => (selected = +x.dataset.row);
         x.oninput = () => {
+          prettify(x);
           p.rows[+x.dataset.row].input = x.value;
           persist();
         };
@@ -171,7 +172,7 @@
         persist();
       };
     else if (p.kind === "graph")
-      GraphKit.mount({ page: p, math, prepare: CASEngine.prepare, persist, $ });
+      GraphKit.mount({ page: p, math, prepare: CASEngine.prepare, pretty: CASEngine.pretty, persist, $ });
     else if (p.kind === "tutor") {
       $("#ask").onclick = askTutor;
     } else if (p.kind === "tns") (p.builder ? wireBuilder(p) : wireTns(p));
@@ -222,6 +223,15 @@
   function activeInput() {
     return document.querySelector(".sel input") || document.querySelector("[data-row]");
   }
+  /** Show x^2 as x², log_10 as log₁₀ etc. while typing, keeping the caret where it was. */
+  function prettify(x) {
+    const caret = x.selectionStart,
+      before = CASEngine.pretty(x.value.slice(0, caret)),
+      all = CASEngine.pretty(x.value);
+    if (all === x.value) return;
+    x.value = all;
+    x.setSelectionRange(before.length, before.length);
+  }
   function insert(v) {
     let x = activeInput();
     if (!x) return;
@@ -229,9 +239,11 @@
       b = x.selectionEnd;
     if (v === "del") x.value = x.value.slice(0, a - (a === b ? 1 : 0)) + x.value.slice(b);
     else x.value = x.value.slice(0, a) + v + x.value.slice(b);
+    const caret = a + (v === "del" ? (a === b ? -1 : 0) : v.length);
+    x.setSelectionRange(Math.max(caret, 0), Math.max(caret, 0));
+    prettify(x);
     page().rows[+x.dataset.row].input = x.value;
     x.focus();
-    x.setSelectionRange(a + v.length, a + v.length);
   }
   async function tutorRequest(q) {
     const key = getKey();

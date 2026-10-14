@@ -252,6 +252,7 @@
 
   function mount(ctx) {
     const { page, math, prepare, persist, $ } = ctx;
+    const prettyText = ctx.pretty || ((t) => t);
     const canvas = $("#plot"),
       g = canvas.getContext("2d"),
       W = canvas.width,
@@ -430,6 +431,10 @@
       } else draw();
     };
 
+    $("#formula").addEventListener("input", (e) => {
+      const t = e.target, c = t.selectionStart, all = prettyText(t.value), before = prettyText(t.value.slice(0, c));
+      if (all !== t.value) { t.value = all; t.setSelectionRange(before.length, before.length); }
+    });
     $("#draw").onclick = () => { if (build()) redraw(); };
     $("#gIn").onclick = () => build() && setView(zoomView(view, 0.5));
     $("#gOut").onclick = () => build() && setView(zoomView(view, 2));

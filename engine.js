@@ -26,14 +26,35 @@
 
   // ---- 1. cleaning the input -------------------------------------------------
 
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹",
+    SUB = "₀₁₂₃₄₅₆₇₈₉";
+  const toSup = (d) => d.replace(/\d/g, (c) => SUP[c]).replace(/-/g, "⁻");
+  const toSub = (d) => d.replace(/\d/g, (c) => SUB[c]);
+
+  /** Typeset-style display: x^2 -> x², log_10( -> log₁₀(, sqrt( -> √(, pi -> π. normalize() reads it back. */
+  function pretty(s) {
+    s = String(s)
+      .replace(/\^(-?\d)/g, (m, d) => toSup(d))
+      .replace(/log_(\d+)/gi, (m, d) => "log" + toSub(d))
+      .replace(/\bsqrt\(/g, "√(")
+      .replace(/\bpi\b/g, "π");
+    // keep typing digits after a superscript / subscript: x²0 -> x²⁰, log₁0 -> log₁₀
+    let prev;
+    do {
+      prev = s;
+      s = s.replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹])(\d)/g, (m, a, d) => a + SUP[d]).replace(/([₀-₉])(\d)/g, (m, a, d) => a + SUB[d]);
+    } while (s !== prev);
+    return s;
+  }
+
   function normalize(s) {
     return String(s == null ? "" : s)
+      .replace(/log([₀-₉]+)/gi, (m, d) => "log_" + [...d].map((c) => SUB.indexOf(c)).join(""))
+      .replace(/([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (m) => "^(" + [...m].map((c) => (c === "⁻" ? "-" : SUP.indexOf(c))).join("") + ")")
       .replace(/×/g, "*")
       .replace(/÷/g, "/")
       .replace(/[−–—]/g, "-")
       .replace(/π/g, "pi")
-      .replace(/²/g, "^2")
-      .replace(/³/g, "^3")
       .replace(/√\s*\(/g, "sqrt(")
       .replace(/√\s*([A-Za-z0-9.]+)/g, "sqrt($1)")
       .replace(/[“”]/g, '"')
@@ -613,5 +634,5 @@
     return deps.math.format(deps.math.evaluate(text), { precision: 14 });
   }
 
-  return { prepare, prepareMath, toAlgebrite, resolveCommand, rewriteNatural, normalize, balanceBrackets, splitTop, looksLikeQuestion, parseCommand, calculate, friendlyError };
+  return { pretty, prepare, prepareMath, toAlgebrite, resolveCommand, rewriteNatural, normalize, balanceBrackets, splitTop, looksLikeQuestion, parseCommand, calculate, friendlyError };
 });

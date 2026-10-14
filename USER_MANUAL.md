@@ -436,3 +436,7 @@ Press **menu** for Actions, Number, Algebra, Calculus, Probability, Statistics a
 Type up to four functions, one per line (`y=` is optional), then Draw. Numbered axes with optional x/y unit labels, **＋ / －** zoom (or mouse wheel), **Standard** (-10 to 10), **Auto zoom** (fits intercepts, turning points and intersections), **Square** (equal axes) and typed window values. **Mode: Pan** drags the graph; **Mode: Trace** follows your finger/mouse (snaps to special points) and the ◀ ▶ buttons or arrow keys step along the curve, ▲▼/Next curve switch curve. x- and y-intercepts, minima/maxima and intersections are marked and listed under the graph.
 
 Logs: `log(x)` is base 10, `ln(x)` natural, `log_2(x)` any base.
+
+## Typeset typing
+
+While you type, `x^2` becomes `x²`, `log_10(` becomes `log₁₀(`, `sqrt(` becomes `√(` and `pi` becomes `π`. The calculator reads these back as normal, so you can also paste `x²` or `log₁₀`.
