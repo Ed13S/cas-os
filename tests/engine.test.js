@@ -116,3 +116,32 @@ test("calculator-menu commands", () => {
   assert.equal(c("approxFraction(0.75)"), "3/4");
   assert.match(c("stdDev({1,2,3,4}"), /^1\.29/);
 });
+
+test("log notation and trailing comma", () => {
+  const c = (q) => E.calculate(q, { math, Algebrite }).output;
+  assert.equal(c("solve(log_10(x)=2,)"), "x = 100");
+  assert.equal(c("log_2(8)"), "3");
+  assert.equal(c("log(1000)"), "3");
+  assert.equal(c("ln(e)"), "1");
+});
+
+test("plain evaluate phrasing and constants", () => {
+  const c = (q) => E.calculate(q, { math, Algebrite }).output;
+  assert.equal(c("log_10(100)"), "2");
+  assert.equal(c("log_10(100)="), "2");
+  assert.equal(c("what is log_10(100)"), "2");
+  assert.equal(c("solve(log_10(100)=x,x)"), "x = 2");
+  assert.equal(c("solve(2^x=8,x)"), "x = 3");
+  assert.equal(E.calculate("explain log laws", { math, Algebrite }).kind, "question");
+});
+
+test("typeset display reads back", () => {
+  assert.equal(E.pretty("x^2+log_10(x)+sqrt(4)+pi"), "x²+log₁₀(x)+√(4)+π");
+  assert.equal(E.pretty("x²0"), "x²⁰");
+  const c = (q) => E.calculate(q, { math, Algebrite }).output;
+  assert.equal(c(E.pretty("2^3")), "8");
+  assert.equal(c(E.pretty("log_10(1000)")), "3");
+  assert.equal(c(E.pretty("sqrt(16)")), "4");
+  assert.equal(c("x⁻¹".replace("x", "2")), "0.5");
+  assert.equal(c("solve(x²=9)"), "x = -3 or x = 3");
+});

@@ -26,14 +26,35 @@
 
   // ---- 1. cleaning the input -------------------------------------------------
 
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹",
+    SUB = "₀₁₂₃₄₅₆₇₈₉";
+  const toSup = (d) => d.replace(/\d/g, (c) => SUP[c]).replace(/-/g, "⁻");
+  const toSub = (d) => d.replace(/\d/g, (c) => SUB[c]);
+
+  /** Typeset-style display: x^2 -> x², log_10( -> log₁₀(, sqrt( -> √(, pi -> π. normalize() reads it back. */
+  function pretty(s) {
+    s = String(s)
+      .replace(/\^(-?\d)/g, (m, d) => toSup(d))
+      .replace(/log_(\d+)/gi, (m, d) => "log" + toSub(d))
+      .replace(/\bsqrt\(/g, "√(")
+      .replace(/\bpi\b/g, "π");
+    // keep typing digits after a superscript / subscript: x²0 -> x²⁰, log₁0 -> log₁₀
+    let prev;
+    do {
+      prev = s;
+      s = s.replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹])(\d)/g, (m, a, d) => a + SUP[d]).replace(/([₀-₉])(\d)/g, (m, a, d) => a + SUB[d]);
+    } while (s !== prev);
+    return s;
+  }
+
   function normalize(s) {
     return String(s == null ? "" : s)
+      .replace(/log([₀-₉]+)/gi, (m, d) => "log_" + [...d].map((c) => SUB.indexOf(c)).join(""))
+      .replace(/([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (m) => "^(" + [...m].map((c) => (c === "⁻" ? "-" : SUP.indexOf(c))).join("") + ")")
       .replace(/×/g, "*")
       .replace(/÷/g, "/")
       .replace(/[−–—]/g, "-")
       .replace(/π/g, "pi")
-      .replace(/²/g, "^2")
-      .replace(/³/g, "^3")
       .replace(/√\s*\(/g, "sqrt(")
       .replace(/√\s*([A-Za-z0-9.]+)/g, "sqrt($1)")
       .replace(/[“”]/g, '"')
@@ -78,6 +99,52 @@
     }
     if (cur.trim() !== "" || out.length) out.push(cur.trim());
     return out;
+  }
+
+  /**
+   * Rewrite function calls named `name`: fn(argsArray) returns the replacement text.
+   * Handles nesting; arguments are rewritten first.
+   */
+  function mapCalls(s, name, fn) {
+    const re = new RegExp("(^|[^A-Za-z0-9_.])(" + name + ")\\s*\\(", "gi");
+    let out = "", pos = 0, m;
+    while ((m = re.exec(s))) {
+      const open = m.index + m[0].length - 1;
+      let depth = 0, end = -1;
+      for (let i = open; i < s.length; i++) {
+        if (OPEN.includes(s[i])) depth++;
+        else if (CLOSE.includes(s[i]) && --depth === 0) { end = i; break; }
+      }
+      if (end < 0) break;
+      const args = splitTop(s.slice(open + 1, end)).map((x) => mapCalls(x, name, fn));
+      out += s.slice(pos, m.index + m[1].length) + fn(args);
+      pos = end + 1;
+      re.lastIndex = pos;
+    }
+    return out + s.slice(pos);
+  }
+
+  function prepareMath(s) {
+    s = s.replace(/\blog\s*_\s*(\d+(?:\.\d+)?|[a-z])\s*\(/gi, "logb($1,");
+    s = mapCalls(s, "logb", (a) => "log((" + a.slice(1).join(",") + ")," + a[0] + ")");
+    s = mapCalls(s, "log", (a) => (a.length === 1 ? "log10(" + a[0] + ")" : "log(" + a.join(",") + ")"));
+    s = mapCalls(s, "ln", (a) => "log(" + a.join(",") + ")");
+    return s;
+  }
+
+  /** The same expression in Algebrite's dialect (log is natural, no bases). */
+  function toAlgebrite(s) {
+    s = mapCalls(s, "log10", (a) => "(log(" + a[0] + ")/log(10))");
+    s = mapCalls(s, "log2", (a) => "(log(" + a[0] + ")/log(2))");
+    s = mapCalls(s, "log", (a) => (a.length === 2 ? "(log(" + a[0] + ")/log(" + a[1] + "))" : "log(" + a[0] + ")"));
+    return s;
+  }
+
+  /** For the graph: clean up, close brackets, fix logs. Returns { text } or { error }. */
+  function prepare(raw) {
+    const bal = balanceBrackets(normalize(raw));
+    if (bal.error) return { error: bal.error };
+    return { text: prepareMath(bal.text) };
   }
 
   // ---- 2. deciding what kind of input it is ----------------------------------
@@ -162,6 +229,11 @@
    * so real questions ("explain integration by parts") still go to the AI tutor.
    */
   function rewriteNatural(s) {
+    const plain = (t) => /^[\w\s^*\/+\-=().,!{}\[\];]+$/.test(t) && !(t.match(/[A-Za-z]+/g) || []).some((w) => w.length > 2 && !MATH_WORDS.has(w.toLowerCase()));
+    // "what is log_10(100)", "calculate 2^10", "please evaluate sin(pi/2)" -> just the maths
+    const v = /^(?:(?:please|can you|could you|help me|what is|what's|whats|calculate|evaluate|compute|work out|find|get)\s+)+(?:the\s+(?:value|result|answer)\s+of\s+)?(.+?)[?.!=\s]*$/i.exec(s);
+    if (v && /[\d(]/.test(v[1]) && !/=/.test(v[1]) && plain(v[1]) && !resolveCommand((v[1].match(/^[A-Za-z]+/) || [""])[0]))
+      return v[1].trim();
     const m = /^(?:(?:please|can you|could you|help me|i need to|i want to|how (?:do|can) i|what is|what's|whats|find|calculate|work out|get)\s+)*(?:the\s+)?([a-z]+)\s+(?:of\s+)?(.+?)[?.!]*$/i.exec(s);
     if (!m) return null;
     const cmd = resolveCommand(m[1]);
@@ -175,7 +247,7 @@
   const MATH_WORDS = new Set(
     ("sin cos tan sec csc cot asin acos atan sinh cosh tanh sqrt cbrt abs exp log ln log10 log2 pi e i inf " +
       "floor ceil round min max mod gcd lcm det inv transpose sum prod mean median std var " +
-      "solve factor expand simplify diff derivative integral integrate int approx float d zeros nsolve completesquare limit fmin fmax tangentline arclen variance npr ncr stddev remainder randint approxfraction").split(" ")
+      "log10 log2 logb solve factor expand simplify diff derivative integral integrate int approx float d zeros nsolve completesquare limit fmin fmax tangentline arclen variance npr ncr stddev remainder randint approxfraction").split(" ")
   );
 
   const QUESTION_WORDS = new Set(
@@ -230,7 +302,7 @@
 
   function algebrite(A, expr) {
     if (A.clearall) A.clearall();
-    const out = String(A.run(expr)).trim();
+    const out = String(A.run(toAlgebrite(expr))).trim();
     if (/Stop:/.test(out)) {
       const reason = out.split("Stop:").pop().trim();
       const err = new Error(reason);
@@ -241,16 +313,28 @@
   }
 
   function tidy(out) {
-    return out.replace(/\*/g, "*").replace(/\.\.\.$/, "...");
+    return out.replace(/\blog\(/g, "ln(");
   }
 
-  function formatRoots(raw, v) {
+  /** "ln(100)/ln(10)" has no unknowns: give 2 (or "exact ≈ decimal"). */
+  function tidyConstant(r, math) {
+    if (!math || !/\b(log|ln)\(/.test(r) || /\b[a-df-z]\b/i.test(r.replace(/\b(log|ln|pi|e)\b/g, ""))) return r;
+    try {
+      const val = math.evaluate(r);
+      if (typeof val !== "number" || !Number.isFinite(val)) return r;
+      return Math.abs(val - Math.round(val)) < 1e-9 ? String(Math.round(val)) : r + " ≈ " + math.format(val, { precision: 6 });
+    } catch (e) {
+      return r;
+    }
+  }
+
+  function formatRoots(raw, v, math) {
     let list;
     if (/^\[.*\]$/.test(raw)) list = splitTop(raw.slice(1, -1));
     else list = [raw];
     list = list.filter((x) => x !== "");
     if (!list.length) return "No solutions found";
-    return list.map((r) => v + " = " + r).join(" or ");
+    return list.map((r) => v + " = " + tidyConstant(r, math)).join(" or ");
   }
 
   /** Numeric fallback for equations Algebrite cannot do symbolically (sin(x)=0.5). */
@@ -261,9 +345,8 @@
       return math.evaluate("(" + left + ")-(" + right + ")", scope);
     };
     const found = [];
-    const lo = -20,
-      hi = 20,
-      steps = 4000;
+    for (const [lo, hi, steps] of [[-20, 20, 4000], [-1000, 1000, 20000]]) scan(lo, hi, steps);
+    function scan(lo, hi, steps) {
     let prevX = lo,
       prevY = safe(f, lo);
     for (let i = 1; i <= steps; i++) {
@@ -287,6 +370,7 @@
       prevX = x;
       prevY = y;
     }
+    }
     const uniq = [];
     for (const r of found) if (!uniq.some((u) => Math.abs(u - r) < 1e-6)) uniq.push(r);
     return uniq.slice(0, 12);
@@ -307,7 +391,7 @@
     const parts = eq.split(/(?<![<>=!])=(?!=)/);
     const nums = numericRoots(deps.math, parts[0], parts[1] || "0", v);
     if (!nums.length) throw new Error("No solution found between -20 and 20.");
-    return nums.map((r) => v + " = " + deps.math.format(r, { precision: 8 })).join(" or ");
+    return nums.map((r) => v + " = " + niceNum(deps.math, r)).join(" or ");
   }
 
   function completeSquare(argText, deps) {
@@ -385,6 +469,10 @@
     return deps.math.format((sum * h) / 3, { precision: 10 });
   }
 
+  function niceNum(math, r) {
+    return Math.abs(r - Math.round(r)) < 1e-9 * Math.max(1, Math.abs(r)) ? String(Math.round(r)) : math.format(r, { precision: 8 });
+  }
+
   function solveEquation(argText, deps) {
     const args = splitTop(argText);
     const eq = args[0] || "";
@@ -395,17 +483,18 @@
       right = parts.length === 2 ? parts[1] : "0";
     if (!left.trim() || !right.trim()) throw new Error("Both sides of the equation need something, e.g. solve(x^2=4,x).");
     try {
-      return formatRoots(algebrite(deps.Algebrite, "roots((" + left + ")-(" + right + ")," + v + ")"), v);
+      return formatRoots(algebrite(deps.Algebrite, "roots((" + left + ")-(" + right + ")," + v + ")"), v, deps.math);
     } catch (e) {
       if (!e.fromAlgebrite || !deps.math) throw e;
       const ex = /^\s*([\w.]+)\s*\^\s*\(?\s*([A-Za-z])\s*\)?\s*$/.exec(left);
       if (ex && ex[2] === v && /^[\d.]+$/.test(right.trim()) && /^[\d.]+$/.test(ex[1])) {
         const exact = "ln(" + right.trim() + ")/ln(" + ex[1] + ")";
-        return v + " = " + exact + " ≈ " + deps.math.format(deps.math.evaluate(exact.replace(/ln\(/g, "log(")), { precision: 6 });
+        const val = deps.math.evaluate(exact.replace(/ln\(/g, "log("));
+        return v + " = " + (Math.abs(val - Math.round(val)) < 1e-9 ? String(Math.round(val)) : exact + " ≈ " + deps.math.format(val, { precision: 6 }));
       }
       const nums = numericRoots(deps.math, left, right, v);
-      if (!nums.length) throw new Error("No solution found between -20 and 20 (and it is not a polynomial).");
-      return nums.map((r) => v + " ≈ " + deps.math.format(r, { precision: 8 })).join(" or ");
+      if (!nums.length) throw new Error("No solution found between -1000 and 1000 (and it is not a polynomial).");
+      return nums.map((r) => v + (Number.isInteger(+niceNum(deps.math, r)) ? " = " : " ≈ ") + niceNum(deps.math, r)).join(" or ");
     }
   }
 
@@ -469,10 +558,11 @@
       return { kind: "question", output: "", question: s.replace(/^@ai\s*/i, ""), notes };
     }
 
+    s = s.replace(/\s*=\s*$/, "");
     const bal = balanceBrackets(s);
     if (bal.error) return { kind: "error", output: "Error: " + bal.error, notes };
-    s = bal.text;
-    if (bal.added) notes.push("Added " + bal.added + " missing closing bracket" + (bal.added > 1 ? "s" : "") + ": " + s);
+    s = prepareMath(bal.text);
+    if (bal.added) notes.push("Added " + bal.added + " missing closing bracket" + (bal.added > 1 ? "s" : "") + ": " + bal.text);
 
     try {
       const cmd = parseCommand(s);
@@ -522,7 +612,7 @@
             break;
         }
       } else if (/(^|[^<>=!])=([^=]|$)/.test(s)) {
-        throw new Error("That is an equation. Use solve(" + s + ",x) to solve it.");
+        throw new Error("That is an equation. Use solve(" + bal.text + ",x) to solve it.");
       } else {
         try {
           out = numeric_strict(s, deps);
@@ -544,5 +634,5 @@
     return deps.math.format(deps.math.evaluate(text), { precision: 14 });
   }
 
-  return { resolveCommand, rewriteNatural, normalize, balanceBrackets, splitTop, looksLikeQuestion, parseCommand, calculate, friendlyError };
+  return { pretty, prepare, prepareMath, toAlgebrite, resolveCommand, rewriteNatural, normalize, balanceBrackets, splitTop, looksLikeQuestion, parseCommand, calculate, friendlyError };
 });
