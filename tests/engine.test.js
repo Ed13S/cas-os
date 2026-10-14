@@ -124,3 +124,13 @@ test("log notation and trailing comma", () => {
   assert.equal(c("log(1000)"), "3");
   assert.equal(c("ln(e)"), "1");
 });
+
+test("plain evaluate phrasing and constants", () => {
+  const c = (q) => E.calculate(q, { math, Algebrite }).output;
+  assert.equal(c("log_10(100)"), "2");
+  assert.equal(c("log_10(100)="), "2");
+  assert.equal(c("what is log_10(100)"), "2");
+  assert.equal(c("solve(log_10(100)=x,x)"), "x = 2");
+  assert.equal(c("solve(2^x=8,x)"), "x = 3");
+  assert.equal(E.calculate("explain log laws", { math, Algebrite }).kind, "question");
+});

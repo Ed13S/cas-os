@@ -208,6 +208,11 @@
    * so real questions ("explain integration by parts") still go to the AI tutor.
    */
   function rewriteNatural(s) {
+    const plain = (t) => /^[\w\s^*\/+\-=().,!{}\[\];]+$/.test(t) && !(t.match(/[A-Za-z]+/g) || []).some((w) => w.length > 2 && !MATH_WORDS.has(w.toLowerCase()));
+    // "what is log_10(100)", "calculate 2^10", "please evaluate sin(pi/2)" -> just the maths
+    const v = /^(?:(?:please|can you|could you|help me|what is|what's|whats|calculate|evaluate|compute|work out|find|get)\s+)+(?:the\s+(?:value|result|answer)\s+of\s+)?(.+?)[?.!=\s]*$/i.exec(s);
+    if (v && /[\d(]/.test(v[1]) && !/=/.test(v[1]) && plain(v[1]) && !resolveCommand((v[1].match(/^[A-Za-z]+/) || [""])[0]))
+      return v[1].trim();
     const m = /^(?:(?:please|can you|could you|help me|i need to|i want to|how (?:do|can) i|what is|what's|whats|find|calculate|work out|get)\s+)*(?:the\s+)?([a-z]+)\s+(?:of\s+)?(.+?)[?.!]*$/i.exec(s);
     if (!m) return null;
     const cmd = resolveCommand(m[1]);
@@ -290,13 +295,25 @@
     return out.replace(/\blog\(/g, "ln(");
   }
 
-  function formatRoots(raw, v) {
+  /** "ln(100)/ln(10)" has no unknowns: give 2 (or "exact ≈ decimal"). */
+  function tidyConstant(r, math) {
+    if (!math || !/\b(log|ln)\(/.test(r) || /\b[a-df-z]\b/i.test(r.replace(/\b(log|ln|pi|e)\b/g, ""))) return r;
+    try {
+      const val = math.evaluate(r);
+      if (typeof val !== "number" || !Number.isFinite(val)) return r;
+      return Math.abs(val - Math.round(val)) < 1e-9 ? String(Math.round(val)) : r + " ≈ " + math.format(val, { precision: 6 });
+    } catch (e) {
+      return r;
+    }
+  }
+
+  function formatRoots(raw, v, math) {
     let list;
     if (/^\[.*\]$/.test(raw)) list = splitTop(raw.slice(1, -1));
     else list = [raw];
     list = list.filter((x) => x !== "");
     if (!list.length) return "No solutions found";
-    return list.map((r) => v + " = " + r).join(" or ");
+    return list.map((r) => v + " = " + tidyConstant(r, math)).join(" or ");
   }
 
   /** Numeric fallback for equations Algebrite cannot do symbolically (sin(x)=0.5). */
@@ -445,13 +462,14 @@
       right = parts.length === 2 ? parts[1] : "0";
     if (!left.trim() || !right.trim()) throw new Error("Both sides of the equation need something, e.g. solve(x^2=4,x).");
     try {
-      return formatRoots(algebrite(deps.Algebrite, "roots((" + left + ")-(" + right + ")," + v + ")"), v);
+      return formatRoots(algebrite(deps.Algebrite, "roots((" + left + ")-(" + right + ")," + v + ")"), v, deps.math);
     } catch (e) {
       if (!e.fromAlgebrite || !deps.math) throw e;
       const ex = /^\s*([\w.]+)\s*\^\s*\(?\s*([A-Za-z])\s*\)?\s*$/.exec(left);
       if (ex && ex[2] === v && /^[\d.]+$/.test(right.trim()) && /^[\d.]+$/.test(ex[1])) {
         const exact = "ln(" + right.trim() + ")/ln(" + ex[1] + ")";
-        return v + " = " + exact + " ≈ " + deps.math.format(deps.math.evaluate(exact.replace(/ln\(/g, "log(")), { precision: 6 });
+        const val = deps.math.evaluate(exact.replace(/ln\(/g, "log("));
+        return v + " = " + (Math.abs(val - Math.round(val)) < 1e-9 ? String(Math.round(val)) : exact + " ≈ " + deps.math.format(val, { precision: 6 }));
       }
       const nums = numericRoots(deps.math, left, right, v);
       if (!nums.length) throw new Error("No solution found between -1000 and 1000 (and it is not a polynomial).");
@@ -519,6 +537,7 @@
       return { kind: "question", output: "", question: s.replace(/^@ai\s*/i, ""), notes };
     }
 
+    s = s.replace(/\s*=\s*$/, "");
     const bal = balanceBrackets(s);
     if (bal.error) return { kind: "error", output: "Error: " + bal.error, notes };
     s = prepareMath(bal.text);
@@ -572,7 +591,7 @@
             break;
         }
       } else if (/(^|[^<>=!])=([^=]|$)/.test(s)) {
-        throw new Error("That is an equation. Use solve(" + s + ",x) to solve it.");
+        throw new Error("That is an equation. Use solve(" + bal.text + ",x) to solve it.");
       } else {
         try {
           out = numeric_strict(s, deps);

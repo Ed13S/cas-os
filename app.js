@@ -196,7 +196,20 @@
             if (doc.pages.some((pg) => pg.rows && pg.rows.includes(mine))) render();
           });
       }
-    } else r.output = res.output;
+    } else {
+      r.output = res.output;
+      if (res.kind === "error" && getKey()) {
+        // the calculator could not do it: let the AI tutor see the input and the error and explain
+        const mine = r, err = res.output;
+        r.output = err + "\nAsking the AI tutor\u2026";
+        tutorRequest("I typed this into my calculator: " + s + "\nIt said: " + err + "\nWhat did I probably mean, and what is the answer?")
+          .then((t) => (mine.output = err + "\nAI tutor: " + t))
+          .catch(() => (mine.output = err))
+          .then(() => {
+            if (doc.pages.some((pg) => pg.rows && pg.rows.includes(mine))) render();
+          });
+      }
+    }
     if (i === rows.length - 1) rows.push({ input: "", output: "" });
     selected = Math.min(i + 1, rows.length - 1);
     render();
