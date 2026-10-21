@@ -17,3 +17,6 @@ Both templates are generated from the engine in `tns.js`, which is tested in `te
 
 For plain revision notes or flashcards you don't need the Gem at all: use CAS OS
 "Add page > Calculator app: Notes / Flashcards".
+
+The Gem can also write plain text for the calculator's own Notes page (no Lua). In CAS OS you can turn any
+notes script into that text: Add page > Calculator app: Notes > Import a Lua notes script > Copy as text for a Notes page.

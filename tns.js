@@ -500,6 +500,15 @@ local idx = 1
 local function setf(gc, style, size) gc:setFont(FONT, style, size) end
 local function color(gc, c) gc:setColorRGB(c[1], c[2], c[3]) end
 
+-- Never cut a multi-byte character (², √, π ...) in half.
+local function whole(s, n)
+  while n > 1 do
+    local b = string.byte(s, n + 1)
+    if b and b >= 128 and b < 192 then n = n - 1 else break end
+  end
+  return n
+end
+
 -- Break one long line into several lines that fit in maxw pixels.
 local function wrap(gc, text, maxw, rows, style)
   setf(gc, style, BODY)
@@ -516,6 +525,7 @@ local function wrap(gc, text, maxw, rows, style)
       while gc:getStringWidth(word) > maxw and #word > 1 do
         local n = #word
         while n > 1 and gc:getStringWidth(string.sub(word, 1, n)) > maxw do n = n - 1 end
+        n = whole(word, n)
         rows[#rows + 1] = { t = string.sub(word, 1, n), s = style }
         word = string.sub(word, n + 1)
       end
@@ -527,7 +537,7 @@ end
 
 local function fit(gc, text, maxw, style, size)
   setf(gc, style, size)
-  while #text > 1 and gc:getStringWidth(text) > maxw do text = string.sub(text, 1, #text - 1) end
+  while #text > 1 and gc:getStringWidth(text) > maxw do text = string.sub(text, 1, whole(text, #text - 1)) end
   return text
 end
 `;
@@ -726,5 +736,56 @@ function on.escapeKey() idx = 1; show = false; platform.window:invalidate() end
     ].join("\n");
   }
 
-  return { luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
+  // ---- plain text for the calculator's own Notes page ------------------------
+
+  const SUBS = "₀₁₂₃₄₅₆₇₈₉";
+  const SYMBOLS = [
+    [/<=>/g, "⇔"], [/=>/g, "⇒"], [/<=/g, "≤"], [/>=/g, "≥"], [/~=/g, "≠"], [/!=/g, "≠"], [/\+\/-/g, "±"],
+    [/\^2(?!\d)/g, "²"], [/\^3(?!\d)/g, "³"], [/\bsqrt\(/g, "√("], [/\bpi\b/g, "π"], [/\btheta\b/g, "θ"],
+    [/\balpha\b/g, "α"], [/\bbeta\b/g, "β"], [/\bomega\b/g, "ω"], [/\bmu\b/g, "μ"], [/\bsigma\b/g, "σ"], [/\bdelta\b/g, "Δ"],
+    [/log_(\d)(\d?)/g, (m, a, b) => "log" + SUBS[a] + (b ? SUBS[b] : "")],
+  ];
+
+  /** Notes as plain text to paste into a Notes page. Page titles become "=== TITLE ===", headings "-- Heading --". */
+  function plainNotes(b, opt) {
+    const sym = !opt || opt.symbols !== false;
+    const fix = (t) => (sym ? SYMBOLS.reduce((x, [re, to]) => x.replace(re, to), t) : t);
+    const out = [];
+    if (b.title) out.push(String(b.title).toUpperCase(), "");
+    for (const it of b.items) {
+      out.push("=== " + fix(String(it.a || "")) + " ===", "");
+      for (const line of String(it.b || "").split("\n")) out.push(/^#\s/.test(line) ? "-- " + fix(line.replace(/^#\s+/, "")) + " --" : fix(line));
+      out.push("");
+    }
+    return out.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+  }
+
+  /** Read the PAGES table of a notes script made by CAS OS or an AI. Returns a builder-shaped object. */
+  function luaToItems(lua) {
+    const LIT = "\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'";
+    const str = (lit) => lit.slice(1, -1).replace(/\\n/g, "\n").replace(/\\(["'\\])/g, "$1");
+    const tm = new RegExp("\\bTITLE\\s*=\\s*(" + LIT + ")").exec(lua);
+    const items = [];
+    const re = new RegExp("title\\s*=\\s*(" + LIT + ")\\s*,\\s*lines\\s*=\\s*\\{", "g");
+    let m;
+    while ((m = re.exec(lua))) {
+      let i = re.lastIndex, depth = 1, inStr = null;
+      const start = i;
+      for (; i < lua.length && depth > 0; i++) {
+        const c = lua[i];
+        if (inStr) {
+          if (c === "\\") i++;
+          else if (c === inStr) inStr = null;
+        } else if (c === '"' || c === "'") inStr = c;
+        else if (c === "{") depth++;
+        else if (c === "}") depth--;
+      }
+      const lines = (lua.slice(start, i - 1).match(new RegExp(LIT, "g")) || []).map(str);
+      items.push({ a: str(m[1]), b: lines.join("\n") });
+    }
+    if (!items.length) throw new Error('No notes pages found. The script needs a PAGES table like { title = "...", lines = { "..." } }.');
+    return { title: tm ? str(tm[1]) : "Notes", mode: "notes", items };
+  }
+
+  return { plainNotes, luaToItems, luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
 });

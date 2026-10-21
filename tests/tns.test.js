@@ -137,3 +137,17 @@ test("CAS OS document -> Lua viewer", () => {
   assert.match(lua, /a \\"quoted\\" line/);
   assert.match(lua, /function on\.paint\(gc\)/);
 });
+
+test("plain-text notes and Lua notes import", () => {
+  const lua = TNS.luaViewer({ mode: "notes", title: "T", theme: "dark", items: [{ a: "P1", b: "# Head\na <= b, x^2\nlog_10(x)" }, { a: "P2", b: "line" }] });
+  const got = TNS.luaToItems(lua);
+  assert.equal(got.title, "T");
+  assert.equal(got.items.length, 2);
+  assert.equal(got.items[0].b, "# Head\na <= b, x^2\nlog_10(x)");
+  const txt = TNS.plainNotes(got);
+  assert.match(txt, /=== P1 ===/);
+  assert.match(txt, /-- Head --/);
+  assert.match(txt, /a ≤ b, x²/);
+  assert.match(txt, /log₁₀\(x\)/);
+  assert.throws(() => TNS.luaToItems("print(1)"));
+});

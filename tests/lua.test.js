@@ -144,3 +144,14 @@ test("the template files shipped for the Gemini Gem run and fit the screen", () 
     for (const s of sc) for (const d of s) assert.ok(d.y + d.size + 4 <= 240 && d.x + d.w <= 320, f + ": " + d.s);
   }
 });
+
+test("notes viewer: symbols like ² and √ are never cut in half", () => {
+  const word = "x²√π".repeat(40);
+  const lua = TNS.luaViewer({ mode: "notes", title: "Unicode title ²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²", items: [{ a: "T²", b: word + "\n# √" + word }] });
+  const sc = screens(run(lua, WALK));
+  for (const s of sc)
+    for (const d of s) {
+      const buf = Buffer.from(d.s, "utf8");
+      assert.ok(!d.s.includes("�") && Buffer.from(buf.toString("utf8"), "utf8").equals(buf), `broken character in "${d.s}"`);
+    }
+});

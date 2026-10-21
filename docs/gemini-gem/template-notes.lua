@@ -30,6 +30,15 @@ local idx = 1
 local function setf(gc, style, size) gc:setFont(FONT, style, size) end
 local function color(gc, c) gc:setColorRGB(c[1], c[2], c[3]) end
 
+-- Never cut a multi-byte character (², √, π ...) in half.
+local function whole(s, n)
+  while n > 1 do
+    local b = string.byte(s, n + 1)
+    if b and b >= 128 and b < 192 then n = n - 1 else break end
+  end
+  return n
+end
+
 -- Break one long line into several lines that fit in maxw pixels.
 local function wrap(gc, text, maxw, rows, style)
   setf(gc, style, BODY)
@@ -46,6 +55,7 @@ local function wrap(gc, text, maxw, rows, style)
       while gc:getStringWidth(word) > maxw and #word > 1 do
         local n = #word
         while n > 1 and gc:getStringWidth(string.sub(word, 1, n)) > maxw do n = n - 1 end
+        n = whole(word, n)
         rows[#rows + 1] = { t = string.sub(word, 1, n), s = style }
         word = string.sub(word, n + 1)
       end
@@ -57,7 +67,7 @@ end
 
 local function fit(gc, text, maxw, style, size)
   setf(gc, style, size)
-  while #text > 1 and gc:getStringWidth(text) > maxw do text = string.sub(text, 1, #text - 1) end
+  while #text > 1 and gc:getStringWidth(text) > maxw do text = string.sub(text, 1, whole(text, #text - 1)) end
   return text
 end
 

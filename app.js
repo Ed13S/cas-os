@@ -325,6 +325,7 @@
       "<label>" + (cards ? "Question" : "Page title") + ' <input id="bA" value="' + esc(it.a) + '"></label>' +
       "<label>" + (cards ? "Answer" : "Text") + ' <textarea id="bB" placeholder="' + (cards ? "The answer" : "Type one line per line. Start a line with # to make a heading. Long lines wrap and long pages continue on the next screen automatically.") + '">' + esc(it.b) + "</textarea></label>" +
       '<div class="tnsbar"><button id="bPrev">Preview</button><button id="bDel">Delete this ' + (cards ? "card" : "page") + '</button><button id="bSave">Save as .tns</button><button id="bCode">Edit the code instead</button></div>' +
+      (cards ? "" : '<div class="tnsbar"><button id="bCopy">Copy as text for a Notes page</button><button id="bTxt">Download .txt</button><label class="file">Import a Lua notes script<input id="bLua" type="file" accept=".lua,.txt"></label></div>') +
       '<canvas id="bPreview" width="320" height="240" hidden></canvas>' +
       '<div class="tnsbar" id="bPrevBar" hidden><button id="bPp">&#9664; Back</button><button id="bPn">Next &#9654;</button>' + (cards ? '<button id="bPe">Show / hide answer</button>' : "") + "</div>" +
       '<output id="tnsOut">' + esc(p.status || "") + "</output>" +
@@ -462,6 +463,33 @@
         pv.ans = !pv.ans;
         draw();
       };
+    if ($("#bCopy")) {
+      $("#bCopy").onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(TNS.plainNotes(b));
+          out.textContent = "Copied. In the TI-Nspire software open a Notes page and press Ctrl+V.";
+        } catch (e) {
+          out.textContent = "Could not copy automatically. Use Download .txt instead.";
+        }
+      };
+      $("#bTxt").onclick = () => {
+        download((b.title || "notes").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_") + ".txt", new TextEncoder().encode(TNS.plainNotes(b)), "text/plain");
+        out.textContent = "Saved. Open the .txt, select all, copy, and paste into a Notes page.";
+      };
+      $("#bLua").onchange = async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        try {
+          const got = TNS.luaToItems(await f.text());
+          b.title = got.title;
+          b.items = got.items;
+          b.sel = 0;
+          render();
+        } catch (err) {
+          out.textContent = err.message;
+        }
+      };
+    }
     $("#bSave").onclick = async () => {
       try {
         const bytes = await TNS.write(TNS.newLuaDocument(TNS.luaViewer(b)));
