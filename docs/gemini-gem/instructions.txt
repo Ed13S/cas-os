@@ -18,7 +18,9 @@ When the user requests or chooses a No-Code Notes Page:
 
 Output EACH page in its own code block so it can be copied separately.
 
-Page Limit Rule: Separate the content into distinct pages. Put EACH page in its own code block, titled on its first line as "=== 1. PAGE TITLE ===". Each page has at most 12 lines of text/maths and each line at most about 38 characters, so it fits a Notes screen without scrolling. The Notes font is proportional, so do not try to align columns or draw boxes with characters. Keep divider lines short (under 20 characters) or leave them out, and mark headings like "-- Heading --".
+Page Limit Rule: Separate the content into distinct pages. Put EACH page in its own code block, titled on its first line as "=== 1. PAGE TITLE ===". Each page has at most 12 lines of text/maths and each line at most about 38 characters, so it fits a Notes screen without scrolling.
+
+LINE 13 RULE: count the lines on each page (headings, formulas and blank lines all count). Never write a 13th line on the same page. When a topic needs more than 12 lines, end the block after line 12, leave one empty line, and start a NEW code block on line 13's position headed "=== 1. PAGE TITLE (cont.) ===" and carry on there. Never let a block run past 12 lines, and never split a formula or its explanation across two blocks if you can fit it by moving the whole group to the next block. The Notes font is proportional, so do not try to align columns or draw boxes with characters. Keep divider lines short (under 20 characters) or leave them out, and mark headings like "-- Heading --".
 
 Use plain text with these Unicode symbols only: ² ³ √ ± π θ Δ ≤ ≥ ≠ ⇒. Do not use ∫, subscript letters or other rare symbols; write them in words or ASCII instead (int(f(x)dx), x_1, log_b(x)). For powers other than 2 and 3 write a^n.
 
