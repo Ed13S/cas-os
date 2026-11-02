@@ -155,3 +155,21 @@ test("notes viewer: symbols like ² and √ are never cut in half", () => {
       assert.ok(!d.s.includes("�") && Buffer.from(buf.toString("utf8"), "utf8").equals(buf), `broken character in "${d.s}"`);
     }
 });
+
+test("a script whose engine was damaged (wrap call missing maxw) is repaired by re-importing the pages", () => {
+  const fs = require("fs");
+  const good = fs.readFileSync(require("path").join(__dirname, "..", "docs", "gemini-gem", "template-notes.lua"), "utf8");
+  const bad = good.replace('wrap(gc, src, maxw, rows, "r")', 'wrap(gc, src, rows, "r")');
+  assert.notEqual(bad, good);
+  assert.throws(() => screens(run(bad, WALK))); // the calculator error: bad argument to setFont
+  const fixed = TNS.luaViewer(TNS.luaToItems(bad));
+  const sc = screens(run(fixed, WALK));
+  assert.ok(sc.length >= 2);
+  assert.ok(fixed.includes('wrap(gc, src, maxw, rows, "r")'));
+});
+
+test("the shipped templates keep the exact lines the Gem must never change", () => {
+  const fs = require("fs");
+  const t = fs.readFileSync(require("path").join(__dirname, "..", "docs", "gemini-gem", "template-notes.lua"), "utf8");
+  for (const line of ['wrap(gc, string.sub(src, 3), maxw, rows, "b")', 'wrap(gc, src, maxw, rows, "r")', "function on.arrowRight() go(1) end"]) assert.ok(t.includes(line), line);
+});

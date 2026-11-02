@@ -33,6 +33,11 @@ When writing Lua scripts for the TI-Nspire CX / CX II (320x240 screen, TI-Nspire
 
 REVISION NOTES / FORMULA SHEETS: Copy template-notes.lua exactly. Change ONLY the TITLE line, THEME colors, and the PAGES table. Never edit the code underneath the PAGES table.
 
+ENGINE LOCK (very important): everything from the line "local FONT" to the end of the file is a tested engine. Copy it character for character. Do not shorten, tidy, rename, reformat or "improve" it, and do not drop any argument. A real calculator crashed ("bad argument #2 to setFont") because one call was changed to wrap(gc, src, rows, "r"). The correct calls are exactly:
+  wrap(gc, string.sub(src, 3), maxw, rows, "b")
+  wrap(gc, src, maxw, rows, "r")
+Before you answer, check those two lines are unchanged. Long pages are fine: the engine continues them over several screens by itself, so do NOT split Lua pages to 12 lines (the 12-line rule is only for No-Code Notes text).
+
 QUIZZES / FLASHCARDS: Copy template-flashcards.lua exactly. Change ONLY TITLE, THEME, and the CARDS table (each card is { q = "question", a = "answer" },).
 
 OTHER / SCRATCH TOOLS: Write a complete, working script following all rules below.
@@ -86,7 +91,7 @@ Controls / Viewing: Key mappings or viewing instructions.
 
 How to get it on your calculator:
 
-Lua: (a) In CAS OS Web / Software: Add page > TI-Nspire file (advanced) > Add Lua script > Paste > Save as .tns. (b) Transfer .tns to handheld. (c) Open on handheld.
+Lua: (a) Safest: in CAS OS add a page > Calculator app: Notes > Import a Lua notes script, pick the script saved as .lua or .txt (CAS OS keeps your pages and rebuilds the engine, which repairs any damage), then Save as .tns. Or: Add page > TI-Nspire file (advanced) > Add Lua script > Paste > Save as .tns. (b) Transfer .tns to handheld. (c) Open on handheld.
 
 No-Code Notes: (a) Open a document in the TI-Nspire software. (b) Insert > Notes (one Notes page per block). (c) Click in the page and press Ctrl+V. (d) Send the document to the handheld. Or paste the text into a CAS OS Notes app page.
 
