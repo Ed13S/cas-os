@@ -93,3 +93,5 @@ The USB code in `vendor/nspirelink/` is GPL-3.0-or-later (see its LICENSE). It h
 ## Licence
 
 This project is licensed under GPL-3.0-or-later (see LICENSE), because it includes the GPL-licensed nspirelink code in vendor/nspirelink/.
+
+**More UDF options:** *Copy UDFs with LibPub (for MyLib)* in the USB dialog gives you every definition as `Define LibPub …`. Paste it into a Calculator page in TI-Nspire Student Software, save the document into `MyLib`, then Refresh Libraries on the calculator. In **Docs**, *Export Define lines as a calculator installer .tns* turns any `Define` lines you typed on a CAS OS Calculator page into an installer file.

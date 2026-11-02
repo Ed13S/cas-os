@@ -19,6 +19,17 @@
       "function on.charIn() run() end\nfunction on.enterKey() run() end\nfunction on.mouseDown() run() end\n"
     );
   }
+  const defineLines = (t) => t.split(/\r?\n/).map((l) => l.trim()).filter((l) => /^Define\s/i.test(l));
+  /** "Define f(x)=..." -> "Define LibPub f(x)=..." (for a document saved in MyLib). */
+  function libPubText(text) {
+    return defineLines(text).map((l) => l.replace(/^Define\s+(?:LibPub\s+|LibPriv\s+)?/i, "Define LibPub ")).join("\n");
+  }
+  /** Every Define line typed on the Calculator pages of a CAS OS document. */
+  function docDefines(doc) {
+    const out = [];
+    for (const p of (doc && doc.pages) || []) if (p.kind === "calculator") for (const r of p.rows || []) if (r.input && /^\s*Define\s/i.test(r.input)) out.push(r.input.trim());
+    return out.join("\n");
+  }
   async function udfText() {
     const r = await fetch("docs/udfs/udfs.txt");
     if (!r.ok) throw new Error("Could not load docs/udfs/udfs.txt");
@@ -45,7 +56,7 @@
       '<output id="clOut"></output><details><summary>Help</summary><p>Chrome or Edge, calculator plugged in and on its home screen. ' +
       'On Windows an original CX needs the WinUSB driver (Zadig). On Linux you may need a udev rule. ' +
       'UDFs: the installer .tns defines every function when you open it and press a key; if that fails, use the Program Editor text (button below).</p>' +
-      '<button id="clPE">Copy Program Editor installer text</button></details><button class="close">Close</button>';
+      '<button id="clPE">Copy Program Editor installer text</button> <button id="clLib">Copy UDFs with LibPub (for MyLib)</button></details><button class="close">Close</button>';
     document.body.appendChild(d);
     d.querySelector(".close").onclick = () => d.close();
     return d;
@@ -116,6 +127,9 @@
         await sendMany([{ path: "Install UDFs.tns", bytes }]);
         say("Sent Install UDFs.tns. Open it on the calculator and press any key.");
       });
+      $("#clLib").onclick = async () => {
+        try { await navigator.clipboard.writeText(libPubText(await udfText())); say("Copied. Paste into a Calculator page in TI-Nspire Student Software, save the document into MyLib, then Refresh Libraries on the calculator."); } catch (e) { say(e.message); }
+      };
       $("#clPE").onclick = async () => {
         try { await navigator.clipboard.writeText(programEditorInstaller(await udfText())); say("Copied. In Program Editor make a new program, paste, run installudfs()."); } catch (e) { say(e.message); }
       };
@@ -130,8 +144,16 @@
     say("Connect your calculator, then press the Send button again.");
   }
 
-  if (typeof document === "undefined") { module.exports = { udfInstallerLua, programEditorInstaller }; return; }
-  window.CalcUI = { open, offer, udfInstallerLua, programEditorInstaller };
+  if (typeof document === "undefined") { module.exports = { udfInstallerLua, programEditorInstaller, libPubText, docDefines }; return; }
+  window.CalcUI = { open, offer, udfInstallerLua, programEditorInstaller, libPubText, docDefines };
+  /** Build an installer .tns from the Define lines on this document's Calculator pages, then send or download it. */
+  window.CalcUI.exportInstaller = async function (doc, download) {
+    const t = docDefines(doc);
+    if (!t) return alert("No Define lines found on this document's Calculator pages.");
+    const bytes = await TNS.write(TNS.newLuaDocument(udfInstallerLua(t)));
+    if (confirm("Send it to the calculator now? (Cancel downloads it instead.)")) await offer("Install " + (doc.name || "UDFs").replace(/[^\w\- ]+/g, "") + ".tns", bytes);
+    else download((doc.name || "UDFs") + " installer.tns", bytes);
+  };
   document.addEventListener("DOMContentLoaded", () => {
     const bar = $(".bar");
     if (!bar) return;

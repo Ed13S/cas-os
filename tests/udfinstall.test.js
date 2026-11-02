@@ -29,3 +29,10 @@ test("installer becomes a readable .tns and program text lists every Define", as
   const pe = UI.programEditorInstaller(text);
   assert.equal((pe.match(/Define /g) || []).length, n + 1);
 });
+
+test("LibPub text and Define lines from a document", () => {
+  const lib = UI.libPubText("Define f(x)=x^2\nDefine LibPriv g(x)=x\nnoise");
+  assert.equal(lib, "Define LibPub f(x)=x^2\nDefine LibPub g(x)=x");
+  const doc = { pages: [{ kind: "calculator", rows: [{ input: "Define h(x)=2*x" }, { input: "2+2" }] }, { kind: "notes", text: "Define z(x)=1" }] };
+  assert.equal(UI.docDefines(doc), "Define h(x)=2*x");
+});

@@ -742,6 +742,7 @@
       render();
     }
   };
+  $("#exportInst").onclick = () => CalcUI.exportInstaller(doc, download);
   $("#docs").onclick = () => {
     $("#docName").value = doc.name;
     $("#documents").showModal();
