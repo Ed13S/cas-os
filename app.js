@@ -126,7 +126,7 @@
         tnsParts(p)
           .map((x, i) => '<option value="' + i + '"' + (i === (p.sel || 0) ? " selected" : "") + ">" + esc(x.label) + "</option>")
           .join("") +
-        '</select></label><textarea id="tnsText" spellcheck="false"></textarea><div class="tnsbar"><button id="tnsSave">Save as .tns</button><button id="tnsAddLua">Add Lua script</button><button id="tnsAddPy">Add Python script</button></div><output id="tnsOut">' +
+        '</select></label><textarea id="tnsText" spellcheck="false"></textarea><div class="tnsbar"><button id="tnsSave">Save as .tns</button><button id="tnsSend">Send to calculator</button><button id="tnsAddLua">Add Lua script</button><button id="tnsAddPy">Add Python script</button></div><output id="tnsOut">' +
         esc(p.status || "") +
         "</output><small>Lua scripts and Problem XML can be edited as text. Files made by TI\u2019s own software may be locked parts that are kept as they are.</small></section>";
     else
@@ -345,7 +345,7 @@
       '<nav class="bnav">' + b.items.map((x, i) => '<button data-bi="' + i + '" class="' + (i === sel ? "on" : "") + '">' + (i + 1) + "</button>").join("") + '<button id="bAdd">+ ' + (cards ? "Card" : "Page") + "</button></nav>" +
       "<label>" + (cards ? "Question" : "Page title") + ' <input id="bA" value="' + esc(it.a) + '"></label>' +
       "<label>" + (cards ? "Answer" : "Text") + ' <textarea id="bB" placeholder="' + (cards ? "The answer" : "Type one line per line. Start a line with # to make a heading. Long lines wrap and long pages continue on the next screen automatically.") + '">' + esc(it.b) + "</textarea></label>" +
-      '<div class="tnsbar"><button id="bPrev">Preview</button><button id="bDel">Delete this ' + (cards ? "card" : "page") + '</button><button id="bSave">Save as .tns</button><button id="bCode">Edit the code instead</button></div>' +
+      '<div class="tnsbar"><button id="bPrev">Preview</button><button id="bDel">Delete this ' + (cards ? "card" : "page") + '</button><button id="bSend">Send to calculator</button><button id="bSave">Save as .tns</button><button id="bCode">Edit the code instead</button></div>' +
       (cards ? "" : '<label>Paste a slab of notes <textarea id="bPaste" placeholder="Paste any notes here, then press Auto-format. It splits them into pages and headings for you."></textarea></label><div class="tnsbar"><button id="bFormat">Auto-format into pages</button></div><div class="tnsbar"><button id="bCopy">Copy as text for a Notes page</button><button id="bTxt">Download .txt</button><label class="file">Import a .lua or .txt notes file<input id="bLua" type="file" accept=".lua,.txt"></label></div>') +
       '<canvas id="bPreview" width="320" height="240" hidden></canvas>' +
       '<div class="tnsbar" id="bPrevBar" hidden><button id="bPp">&#9664; Back</button><button id="bPn">Next &#9654;</button>' + (cards ? '<button id="bPe">Show / hide answer</button>' : "") + "</div>" +
@@ -546,6 +546,14 @@
         }
       };
     }
+    $("#bSend").onclick = async () => {
+      try {
+        const bytes = await TNS.write(TNS.newLuaDocument(TNS.luaViewer(b)));
+        await CalcUI.offer((b.title || "app").replace(/[^\w\- ]+/g, "").trim() + ".tns", bytes);
+      } catch (e) {
+        out.textContent = "Could not send: " + e.message;
+      }
+    };
     $("#bSave").onclick = async () => {
       try {
         const bytes = await TNS.write(TNS.newLuaDocument(TNS.luaViewer(b)));
@@ -640,6 +648,13 @@
       }
       p.sel = tnsParts(p).findIndex((x) => !x.lua && /\.py$/i.test(p.files[x.index].name));
       render();
+    };
+    $("#tnsSend").onclick = async () => {
+      try {
+        await CalcUI.offer(p.title.replace(/\.tns$/i, "") + ".tns", await TNS.write(tnsDoc(p)));
+      } catch (e) {
+        out.textContent = "Could not send: " + e.message;
+      }
     };
     $("#tnsSave").onclick = async () => {
       try {

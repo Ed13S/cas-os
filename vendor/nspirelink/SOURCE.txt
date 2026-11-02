@@ -1,0 +1,2 @@
+nspirelink (https://github.com/calcplex/nspirelink), GPL-3.0-or-later, copied unmodified. Commit:
+f06f2b5c21d0c09905c4fc11a41736f056c22ef4
