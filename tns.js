@@ -500,6 +500,15 @@ local idx = 1
 local function setf(gc, style, size) gc:setFont(FONT, style, size) end
 local function color(gc, c) gc:setColorRGB(c[1], c[2], c[3]) end
 
+-- Never cut a multi-byte character (², √, π ...) in half.
+local function whole(s, n)
+  while n > 1 do
+    local b = string.byte(s, n + 1)
+    if b and b >= 128 and b < 192 then n = n - 1 else break end
+  end
+  return n
+end
+
 -- Break one long line into several lines that fit in maxw pixels.
 local function wrap(gc, text, maxw, rows, style)
   setf(gc, style, BODY)
@@ -516,6 +525,7 @@ local function wrap(gc, text, maxw, rows, style)
       while gc:getStringWidth(word) > maxw and #word > 1 do
         local n = #word
         while n > 1 and gc:getStringWidth(string.sub(word, 1, n)) > maxw do n = n - 1 end
+        n = whole(word, n)
         rows[#rows + 1] = { t = string.sub(word, 1, n), s = style }
         word = string.sub(word, n + 1)
       end
@@ -527,7 +537,7 @@ end
 
 local function fit(gc, text, maxw, style, size)
   setf(gc, style, size)
-  while #text > 1 and gc:getStringWidth(text) > maxw do text = string.sub(text, 1, #text - 1) end
+  while #text > 1 and gc:getStringWidth(text) > maxw do text = string.sub(text, 1, whole(text, #text - 1)) end
   return text
 end
 `;
@@ -726,5 +736,199 @@ function on.escapeKey() idx = 1; show = false; platform.window:invalidate() end
     ].join("\n");
   }
 
-  return { luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
+  // ---- plain text for the calculator's own Notes page ------------------------
+
+  const SUBS = "₀₁₂₃₄₅₆₇₈₉";
+  const SYMBOLS = [
+    [/<=>/g, "⇔"], [/=>/g, "⇒"], [/<=/g, "≤"], [/>=/g, "≥"], [/~=/g, "≠"], [/!=/g, "≠"], [/\+\/-/g, "±"],
+    [/\^2(?!\d)/g, "²"], [/\^3(?!\d)/g, "³"], [/\bsqrt\(/g, "√("], [/\bpi\b/g, "π"], [/\btheta\b/g, "θ"],
+    [/\balpha\b/g, "α"], [/\bbeta\b/g, "β"], [/\bomega\b/g, "ω"], [/\bmu\b/g, "μ"], [/\bsigma\b/g, "σ"], [/\bdelta\b/g, "Δ"],
+    [/log_(\d)(\d?)/g, (m, a, b) => "log" + SUBS[a] + (b ? SUBS[b] : "")],
+  ];
+
+  /** Notes as plain text to paste into a Notes page. Page titles become "=== TITLE ===", headings "-- Heading --". */
+  function plainNotes(b, opt) {
+    const sym = !opt || opt.symbols !== false;
+    const fix = (t) => (sym ? SYMBOLS.reduce((x, [re, to]) => x.replace(re, to), t) : t);
+    const out = [];
+    if (b.title) out.push(String(b.title).toUpperCase(), "");
+    for (const it of b.items) {
+      out.push("=== " + fix(String(it.a || "")) + " ===", "");
+      for (const line of String(it.b || "").split("\n")) out.push(/^#\s/.test(line) ? "-- " + fix(line.replace(/^#\s+/, "")) + " --" : fix(line));
+      out.push("");
+    }
+    return out.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+  }
+
+  /** Read the PAGES table of a notes script made by CAS OS or an AI. Returns a builder-shaped object. */
+  function luaToItems(lua) {
+    const LIT = "\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'";
+    const str = (lit) => lit.slice(1, -1).replace(/\\n/g, "\n").replace(/\\(["'\\])/g, "$1");
+    const tm = new RegExp("\\bTITLE\\s*=\\s*(" + LIT + ")").exec(lua);
+    const items = [];
+    const re = new RegExp("title\\s*=\\s*(" + LIT + ")\\s*,\\s*lines\\s*=\\s*\\{", "g");
+    let m;
+    while ((m = re.exec(lua))) {
+      let i = re.lastIndex, depth = 1, inStr = null;
+      const start = i;
+      for (; i < lua.length && depth > 0; i++) {
+        const c = lua[i];
+        if (inStr) {
+          if (c === "\\") i++;
+          else if (c === inStr) inStr = null;
+        } else if (c === '"' || c === "'") inStr = c;
+        else if (c === "{") depth++;
+        else if (c === "}") depth--;
+      }
+      const lines = (lua.slice(start, i - 1).match(new RegExp(LIT, "g")) || []).map(str);
+      items.push({ a: str(m[1]), b: lines.join("\n") });
+    }
+    if (!items.length) throw new Error('No notes pages found. The script needs a PAGES table like { title = "...", lines = { "..." } }.');
+    return { title: tm ? str(tm[1]) : "Notes", mode: "notes", items };
+  }
+
+  // ---- turning a pasted slab of notes into pages --------------------------------
+
+  /** Split text into pieces of about `max` characters, breaking at blank lines. */
+  function chunkNotes(text, max) {
+    const blocks = String(text).replace(/\r/g, "").split(/\n\s*\n/);
+    const out = [];
+    let cur = "";
+    for (const b of blocks) {
+      if (cur && cur.length + b.length + 2 > max) {
+        out.push(cur);
+        cur = "";
+      }
+      cur += (cur ? "\n\n" : "") + b;
+      while (cur.length > max * 2) {
+        const cut = cur.lastIndexOf("\n", max) > 0 ? cur.lastIndexOf("\n", max) : max;
+        out.push(cur.slice(0, cut));
+        cur = cur.slice(cut).replace(/^\n/, "");
+      }
+    }
+    if (cur.trim()) out.push(cur);
+    return out;
+  }
+
+  /** The AI's reply -> [{title, lines}]. Accepts fenced or chatty replies. */
+  function parseAiPages(reply) {
+    const s = String(reply);
+    const a = s.indexOf("{"), z = s.lastIndexOf("}");
+    if (a < 0 || z < a) throw new Error("The AI did not return pages.");
+    const j = JSON.parse(s.slice(a, z + 1));
+    const pages = (j.pages || []).map((p) => ({ title: String(p.title || "NOTES"), lines: (p.lines || []).map(String) }));
+    if (!pages.length || pages.every((p) => !p.lines.length)) throw new Error("The AI returned no pages.");
+    return pages;
+  }
+
+  /** No-AI formatter: markdown / numbered / ALL CAPS headings start pages, long lines are split. */
+  function localFormat(text, opt) {
+    const per = (opt && opt.rows) || 12, width = (opt && opt.width) || 40;
+    const unmark = (t) => t.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]*)`/g, "$1");
+    const lines = [];
+    for (let raw of String(text).replace(/\r/g, "").split("\n")) {
+      raw = raw.replace(/\s+$/, "");
+      const m = /^(#{1,6})\s+(.*)$/.exec(raw);
+      const eq = /^={2,}\s*(.+?)\s*={2,}$/.exec(raw.trim());
+      const dash = /^-{2}\s*(.+?)\s*-{2}$/.exec(raw.trim());
+      if (eq) lines.push({ t: "page", s: unmark(eq[1]) });
+      else if (dash) lines.push({ t: "head", s: unmark(dash[1]) });
+      else if (/^[-=_*]{3,}$/.test(raw.trim())) continue;
+      else if (m) lines.push({ t: m[1].length <= 2 ? "page" : "head", s: unmark(m[2]) });
+      else if (/^(\d+[.)]\s+)?[A-Z][A-Z0-9 &,'\-()/]{3,}:?$/.test(raw.trim()) && raw.trim().length <= 40) lines.push({ t: "page", s: raw.trim().replace(/:$/, "") });
+      else if (/^[A-Z][^.!?]{2,38}:$/.test(raw.trim())) lines.push({ t: "head", s: raw.trim().replace(/:$/, "") });
+      else lines.push({ t: "line", s: unmark(raw.replace(/^\s*[-*•]\s+/, "- ")) });
+    }
+    const wrap = (s) => {
+      if (s.length <= width) return [s];
+      const out = [];
+      let cur = "";
+      for (const w of s.split(/\s+/)) {
+        if (cur && (cur + " " + w).length > width) { out.push(cur); cur = "  " + w; }
+        else cur = cur ? cur + " " + w : w;
+      }
+      if (cur) out.push(cur);
+      return out;
+    };
+    const items = [];
+    let cur = null;
+    const start = (title) => {
+      cur = { a: title, rows: [] };
+      items.push(cur);
+    };
+    for (const l of lines) {
+      if (l.t === "page") { start(l.s.toUpperCase()); continue; }
+      if (!cur) start("NOTES");
+      if (!l.s.trim()) { if (cur.rows.length && cur.rows[cur.rows.length - 1] !== "") cur.rows.push(""); continue; }
+      const rows = wrap(l.s);
+      if (l.t === "head") rows[0] = "# " + rows[0];
+      for (const r of rows) {
+        if (cur.rows.length >= per) { const t = cur.a.replace(/ \(cont\.\)$/, ""); start(t + " (cont.)"); }
+        cur.rows.push(r);
+      }
+    }
+    return {
+      items: items
+        .map((p) => ({ a: p.a, b: p.rows.join("\n").replace(/^\n+|\n+$/g, "") }))
+        .filter((p) => p.b.trim()),
+    };
+  }
+
+  /**
+   * Quick sanity check of a Lua script before it goes into a .tns.
+   * Returns a plain-English problem, or null when nothing looks wrong. (The calculator only reports
+   * errors when the page opens, e.g. "unexpected symbol near '=='" when Notes text was pasted as code.)
+   */
+  function checkLua(src) {
+    const text = String(src);
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++)
+      if (/^\s*={3,}/.test(lines[i]))
+        return "Line " + (i + 1) + ' starts with "===". That is Notes text (the "No-Code Notes" format), not Lua. Paste it into a Notes page, or into the "Paste a slab of notes" box of a Notes app page.';
+    const stack = [];
+    const open = "({[", close = ")}]";
+    let i = 0, line = 1;
+    while (i < text.length) {
+      const c = text[i];
+      if (c === "\n") line++;
+      if (c === "-" && text[i + 1] === "-") {
+        const lm = /^--\[(=*)\[/.exec(text.slice(i));
+        if (lm) {
+          const end = text.indexOf("]" + lm[1] + "]", i);
+          if (end < 0) return "A --[[ comment starting on line " + line + " is never closed.";
+          line += (text.slice(i, end).match(/\n/g) || []).length;
+          i = end + lm[1].length + 2;
+          continue;
+        }
+        while (i < text.length && text[i] !== "\n") i++;
+        continue;
+      }
+      if (c === "[" && /^\[=*\[/.test(text.slice(i))) {
+        const lm = /^\[(=*)\[/.exec(text.slice(i));
+        const end = text.indexOf("]" + lm[1] + "]", i);
+        if (end < 0) return "A [[ string starting on line " + line + " is never closed.";
+        line += (text.slice(i, end).match(/\n/g) || []).length;
+        i = end + lm[1].length + 2;
+        continue;
+      }
+      if (c === '"' || c === "'") {
+        let j = i + 1;
+        while (j < text.length && text[j] !== c && text[j] !== "\n") j += text[j] === "\\" ? 2 : 1;
+        if (text[j] !== c) return "The text starting on line " + line + " is missing its closing quote.";
+        i = j + 1;
+        continue;
+      }
+      if (open.includes(c)) stack.push({ c, line });
+      else if (close.includes(c)) {
+        const top = stack.pop();
+        if (!top || open.indexOf(top.c) !== close.indexOf(c)) return "Line " + line + ": '" + c + "' has no matching opening bracket.";
+      }
+      i++;
+    }
+    if (stack.length) return "The '" + stack[stack.length - 1].c + "' on line " + stack[stack.length - 1].line + " is never closed.";
+    if (!/\bfunction\s+on\.\w+|\bon\.paint\s*=/.test(text)) return "There is no on.paint(gc) function, so the calculator would draw nothing.";
+    return null;
+  }
+
+  return { checkLua, chunkNotes, parseAiPages, localFormat, plainNotes, luaToItems, luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
 });

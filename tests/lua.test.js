@@ -144,3 +144,32 @@ test("the template files shipped for the Gemini Gem run and fit the screen", () 
     for (const s of sc) for (const d of s) assert.ok(d.y + d.size + 4 <= 240 && d.x + d.w <= 320, f + ": " + d.s);
   }
 });
+
+test("notes viewer: symbols like ² and √ are never cut in half", () => {
+  const word = "x²√π".repeat(40);
+  const lua = TNS.luaViewer({ mode: "notes", title: "Unicode title ²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²", items: [{ a: "T²", b: word + "\n# √" + word }] });
+  const sc = screens(run(lua, WALK));
+  for (const s of sc)
+    for (const d of s) {
+      const buf = Buffer.from(d.s, "utf8");
+      assert.ok(!d.s.includes("�") && Buffer.from(buf.toString("utf8"), "utf8").equals(buf), `broken character in "${d.s}"`);
+    }
+});
+
+test("a script whose engine was damaged (wrap call missing maxw) is repaired by re-importing the pages", () => {
+  const fs = require("fs");
+  const good = fs.readFileSync(require("path").join(__dirname, "..", "docs", "gemini-gem", "template-notes.lua"), "utf8");
+  const bad = good.replace('wrap(gc, src, maxw, rows, "r")', 'wrap(gc, src, rows, "r")');
+  assert.notEqual(bad, good);
+  assert.throws(() => screens(run(bad, WALK))); // the calculator error: bad argument to setFont
+  const fixed = TNS.luaViewer(TNS.luaToItems(bad));
+  const sc = screens(run(fixed, WALK));
+  assert.ok(sc.length >= 2);
+  assert.ok(fixed.includes('wrap(gc, src, maxw, rows, "r")'));
+});
+
+test("the shipped templates keep the exact lines the Gem must never change", () => {
+  const fs = require("fs");
+  const t = fs.readFileSync(require("path").join(__dirname, "..", "docs", "gemini-gem", "template-notes.lua"), "utf8");
+  for (const line of ['wrap(gc, string.sub(src, 3), maxw, rows, "b")', 'wrap(gc, src, maxw, rows, "r")', "function on.arrowRight() go(1) end"]) assert.ok(t.includes(line), line);
+});

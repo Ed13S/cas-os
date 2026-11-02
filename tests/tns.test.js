@@ -137,3 +137,65 @@ test("CAS OS document -> Lua viewer", () => {
   assert.match(lua, /a \\"quoted\\" line/);
   assert.match(lua, /function on\.paint\(gc\)/);
 });
+
+test("plain-text notes and Lua notes import", () => {
+  const lua = TNS.luaViewer({ mode: "notes", title: "T", theme: "dark", items: [{ a: "P1", b: "# Head\na <= b, x^2\nlog_10(x)" }, { a: "P2", b: "line" }] });
+  const got = TNS.luaToItems(lua);
+  assert.equal(got.title, "T");
+  assert.equal(got.items.length, 2);
+  assert.equal(got.items[0].b, "# Head\na <= b, x^2\nlog_10(x)");
+  const txt = TNS.plainNotes(got);
+  assert.match(txt, /=== P1 ===/);
+  assert.match(txt, /-- Head --/);
+  assert.match(txt, /a ≤ b, x²/);
+  assert.match(txt, /log₁₀\(x\)/);
+  assert.throws(() => TNS.luaToItems("print(1)"));
+});
+
+test("pasted notes are split into pages (no AI) and AI replies are parsed", () => {
+  const raw = "# Index laws\nBasic laws:\na^m * a^n = a^(m+n)\n" + "word ".repeat(30) + "\n\nLOG LAWS\nlog_a(MN) = log_a(M) + log_a(N)\n- bullet one\n\n" + Array.from({ length: 20 }, (_, i) => "row " + i).join("\n");
+  const r = TNS.localFormat(raw);
+  assert.equal(r.items[0].a, "INDEX LAWS");
+  assert.match(r.items[0].b, /^# Basic laws\na\^m \* a\^n/);
+  assert.equal(r.items[1].a, "LOG LAWS");
+  assert.ok(r.items.length >= 3 && r.items.some((p) => /\(cont\.\)/.test(p.a)));
+  for (const p of r.items) {
+    assert.ok(p.b.split("\n").length <= 12, p.a + " has too many lines");
+    for (const l of p.b.split("\n")) assert.ok(l.length <= 44, "too long: " + l);
+  }
+  const ai = TNS.parseAiPages('Sure!\n```json\n{"pages":[{"title":"1. A","lines":["# H","x"]}]}\n```');
+  assert.deepEqual(ai, [{ title: "1. A", lines: ["# H", "x"] }]);
+  assert.throws(() => TNS.parseAiPages("no json"));
+  assert.throws(() => TNS.parseAiPages('{"pages":[]}'));
+  const big = "para one\n\n".repeat(1000);
+  assert.ok(TNS.chunkNotes(big, 3000).every((c) => c.length <= 6000));
+  // the result feeds straight into the Lua viewer and the Notes-page text
+  const lua = TNS.luaViewer({ mode: "notes", title: "T", items: r.items });
+  assert.match(lua, /INDEX LAWS/);
+  assert.match(TNS.plainNotes({ title: "T", items: r.items }), /=== INDEX LAWS ===/);
+});
+
+test("checkLua catches the mistakes that only show up on the calculator", () => {
+  const good = TNS.luaViewer({ mode: "notes", title: "T", items: [{ a: "A", b: "x" }] });
+  assert.equal(TNS.checkLua(good), null);
+  // the exact failure reported from a real calculator: Notes text pasted as code
+  assert.match(TNS.checkLua("=== 1. INDEX LAWS ===\n\n-- Basic --\na^m"), /Line 1 starts with "==="/);
+  assert.match(TNS.checkLua("-- title\n=== PAGE ===\nfunction on.paint(gc) end"), /Line 2 starts with "==="/);
+  assert.match(TNS.checkLua('local x = "abc\nfunction on.paint(gc) end'), /closing quote/);
+  assert.match(TNS.checkLua("local t = {1,2\nfunction on.paint(gc) end"), /never closed/);
+  assert.match(TNS.checkLua("local t = {1,2})\nfunction on.paint(gc) end"), /no matching/);
+  assert.match(TNS.checkLua("print(1)"), /no on\.paint/);
+  // brackets inside strings and comments are ignored
+  assert.equal(TNS.checkLua('local s = "(((" -- }}}\n--[[ ( ]]\nfunction on.paint(gc) gc:drawString("[", 0, 0) end'), null);
+});
+
+test("Notes text in the No-Code format becomes pages", () => {
+  const txt = "INDEX LAWS\n\n=== 1. INDEX LAWS ===\n\n-- Basic --\na^m * a^n = a^(m+n)\n\n=== 2. LOGS ===\n\nlog_a(1) = 0\n";
+  const r = TNS.localFormat(txt);
+  assert.deepEqual(r.items.map((p) => p.a), ["INDEX LAWS", "1. INDEX LAWS", "2. LOGS"].filter((x, i) => i > 0 || r.items[0].a === "INDEX LAWS"));
+  const p1 = r.items.find((p) => p.a === "1. INDEX LAWS");
+  assert.equal(p1.b, "# Basic\na^m * a^n = a^(m+n)");
+  // round trip: pages -> plain text -> pages
+  const back = TNS.localFormat(TNS.plainNotes({ title: "", items: r.items }, { symbols: false }));
+  assert.deepEqual(back.items.map((p) => p.b), r.items.map((p) => p.b));
+});
