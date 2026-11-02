@@ -245,7 +245,7 @@
     page().rows[+x.dataset.row].input = x.value;
     x.focus();
   }
-  async function tutorRequest(q) {
+  async function aiRequest(system, user) {
     const key = getKey();
     if (!key) throw Error("No AI key is set. Put it in config.js.");
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -254,13 +254,8 @@
       body: JSON.stringify({
         model: "openrouter/free",
         messages: [
-          {
-            role: "system",
-            content:
-              "You are a maths tutor built into a calculator. The student may type quickly: expect typos and missing closing brackets. " +
-              "Work out what they most likely meant, say what you assumed, then answer. Use plain text maths only. No LaTeX.",
-          },
-          { role: "user", content: q },
+          { role: "system", content: system },
+          { role: "user", content: user },
         ],
       }),
     });
@@ -269,6 +264,32 @@
     const text = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
     if (!text) throw Error("The AI returned an empty answer. Try again.");
     return text;
+  }
+  const TUTOR_SYSTEM =
+    "You are a maths tutor built into a calculator. The student may type quickly: expect typos and missing closing brackets. " +
+    "Work out what they most likely meant, say what you assumed, then answer. Use plain text maths only. No LaTeX.";
+  const tutorRequest = (q) => aiRequest(TUTOR_SYSTEM, q);
+  const FORMAT_SYSTEM =
+    "You format pasted study notes for a TI-Nspire calculator Notes app. Reply with ONLY one JSON object, no markdown fences, no commentary:\n" +
+    '{"pages":[{"title":"1. PAGE TITLE","lines":["# Heading","a normal line",""]}]}\n' +
+    "Rules: keep ALL of the user's content and do not invent facts. Split into pages of at most 12 lines (a heading line starting with '# ' counts as one line). " +
+    "Keep each line under about 40 characters by splitting long lines. Use '# ' for sub-headings and an empty string for a blank line. " +
+    "Plain text only: no LaTeX, no markdown, no bold. Use these symbols where they fit: ² ³ √ ± π θ Δ ≤ ≥ ≠ ⇒. Write other maths in ASCII, e.g. a^m, log_b(x), int(f(x)dx). " +
+    "Page titles are short, numbered and in capitals.";
+  async function aiFormat(text, onProgress) {
+    const chunks = TNS.chunkNotes(text, 3000);
+    const pages = [];
+    let used = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      onProgress("Formatting part " + (i + 1) + " of " + chunks.length + "\u2026");
+      try {
+        pages.push(...TNS.parseAiPages(await aiRequest(FORMAT_SYSTEM, chunks[i])));
+        used++;
+      } catch (e) {
+        pages.push(...TNS.localFormat(chunks[i]).items.map((p) => ({ title: p.a, lines: p.b.split("\n") })));
+      }
+    }
+    return { pages, used, parts: chunks.length };
   }
   async function askTutor() {
     const p = page(),
@@ -325,7 +346,7 @@
       "<label>" + (cards ? "Question" : "Page title") + ' <input id="bA" value="' + esc(it.a) + '"></label>' +
       "<label>" + (cards ? "Answer" : "Text") + ' <textarea id="bB" placeholder="' + (cards ? "The answer" : "Type one line per line. Start a line with # to make a heading. Long lines wrap and long pages continue on the next screen automatically.") + '">' + esc(it.b) + "</textarea></label>" +
       '<div class="tnsbar"><button id="bPrev">Preview</button><button id="bDel">Delete this ' + (cards ? "card" : "page") + '</button><button id="bSave">Save as .tns</button><button id="bCode">Edit the code instead</button></div>' +
-      (cards ? "" : '<div class="tnsbar"><button id="bCopy">Copy as text for a Notes page</button><button id="bTxt">Download .txt</button><label class="file">Import a Lua notes script<input id="bLua" type="file" accept=".lua,.txt"></label></div>') +
+      (cards ? "" : '<label>Paste a slab of notes <textarea id="bPaste" placeholder="Paste any notes here, then press Auto-format. It splits them into pages and headings for you."></textarea></label><div class="tnsbar"><button id="bFormat">Auto-format into pages</button></div><div class="tnsbar"><button id="bCopy">Copy as text for a Notes page</button><button id="bTxt">Download .txt</button><label class="file">Import a Lua notes script<input id="bLua" type="file" accept=".lua,.txt"></label></div>') +
       '<canvas id="bPreview" width="320" height="240" hidden></canvas>' +
       '<div class="tnsbar" id="bPrevBar" hidden><button id="bPp">&#9664; Back</button><button id="bPn">Next &#9654;</button>' + (cards ? '<button id="bPe">Show / hide answer</button>' : "") + "</div>" +
       '<output id="tnsOut">' + esc(p.status || "") + "</output>" +
@@ -463,6 +484,31 @@
         pv.ans = !pv.ans;
         draw();
       };
+    if ($("#bFormat")) {
+      $("#bFormat").onclick = async () => {
+        const raw = $("#bPaste").value.trim();
+        if (!raw) return (out.textContent = "Paste some notes first.");
+        if (b.items.some((x) => x.b.trim()) && !confirm("Replace the pages you have now with the formatted notes?")) return;
+        $("#bFormat").disabled = true;
+        let got, how;
+        try {
+          if (getKey()) {
+            const r = await aiFormat(raw, (m) => (out.textContent = m));
+            got = { items: r.pages.map((p) => ({ a: p.title, b: p.lines.join("\n") })) };
+            how = r.used === r.parts ? "Formatted with the AI." : "The AI failed on " + (r.parts - r.used) + " part(s); those used the simple formatter.";
+          } else {
+            got = TNS.localFormat(raw);
+            how = "Formatted without AI (no key set).";
+          }
+          b.items = got.items.length ? got.items : b.items;
+          b.sel = 0;
+          p.status = how + " " + b.items.length + " page(s). Check them, then save or copy.";
+        } finally {
+          $("#bFormat").disabled = false;
+        }
+        render();
+      };
+    }
     if ($("#bCopy")) {
       $("#bCopy").onclick = async () => {
         try {

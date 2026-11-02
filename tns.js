@@ -787,5 +787,87 @@ function on.escapeKey() idx = 1; show = false; platform.window:invalidate() end
     return { title: tm ? str(tm[1]) : "Notes", mode: "notes", items };
   }
 
-  return { plainNotes, luaToItems, luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
+  // ---- turning a pasted slab of notes into pages --------------------------------
+
+  /** Split text into pieces of about `max` characters, breaking at blank lines. */
+  function chunkNotes(text, max) {
+    const blocks = String(text).replace(/\r/g, "").split(/\n\s*\n/);
+    const out = [];
+    let cur = "";
+    for (const b of blocks) {
+      if (cur && cur.length + b.length + 2 > max) {
+        out.push(cur);
+        cur = "";
+      }
+      cur += (cur ? "\n\n" : "") + b;
+      while (cur.length > max * 2) {
+        const cut = cur.lastIndexOf("\n", max) > 0 ? cur.lastIndexOf("\n", max) : max;
+        out.push(cur.slice(0, cut));
+        cur = cur.slice(cut).replace(/^\n/, "");
+      }
+    }
+    if (cur.trim()) out.push(cur);
+    return out;
+  }
+
+  /** The AI's reply -> [{title, lines}]. Accepts fenced or chatty replies. */
+  function parseAiPages(reply) {
+    const s = String(reply);
+    const a = s.indexOf("{"), z = s.lastIndexOf("}");
+    if (a < 0 || z < a) throw new Error("The AI did not return pages.");
+    const j = JSON.parse(s.slice(a, z + 1));
+    const pages = (j.pages || []).map((p) => ({ title: String(p.title || "NOTES"), lines: (p.lines || []).map(String) }));
+    if (!pages.length || pages.every((p) => !p.lines.length)) throw new Error("The AI returned no pages.");
+    return pages;
+  }
+
+  /** No-AI formatter: markdown / numbered / ALL CAPS headings start pages, long lines are split. */
+  function localFormat(text, opt) {
+    const per = (opt && opt.rows) || 12, width = (opt && opt.width) || 40;
+    const unmark = (t) => t.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]*)`/g, "$1");
+    const lines = [];
+    for (let raw of String(text).replace(/\r/g, "").split("\n")) {
+      raw = raw.replace(/\s+$/, "");
+      const m = /^(#{1,6})\s+(.*)$/.exec(raw);
+      if (m) lines.push({ t: m[1].length <= 2 ? "page" : "head", s: unmark(m[2]) });
+      else if (/^(\d+[.)]\s+)?[A-Z][A-Z0-9 &,'\-()/]{3,}:?$/.test(raw.trim()) && raw.trim().length <= 40) lines.push({ t: "page", s: raw.trim().replace(/:$/, "") });
+      else if (/^[A-Z][^.!?]{2,38}:$/.test(raw.trim())) lines.push({ t: "head", s: raw.trim().replace(/:$/, "") });
+      else lines.push({ t: "line", s: unmark(raw.replace(/^\s*[-*•]\s+/, "- ")) });
+    }
+    const wrap = (s) => {
+      if (s.length <= width) return [s];
+      const out = [];
+      let cur = "";
+      for (const w of s.split(/\s+/)) {
+        if (cur && (cur + " " + w).length > width) { out.push(cur); cur = "  " + w; }
+        else cur = cur ? cur + " " + w : w;
+      }
+      if (cur) out.push(cur);
+      return out;
+    };
+    const items = [];
+    let cur = null;
+    const start = (title) => {
+      cur = { a: title, rows: [] };
+      items.push(cur);
+    };
+    for (const l of lines) {
+      if (l.t === "page") { start(l.s.toUpperCase()); continue; }
+      if (!cur) start("NOTES");
+      if (!l.s.trim()) { if (cur.rows.length && cur.rows[cur.rows.length - 1] !== "") cur.rows.push(""); continue; }
+      const rows = wrap(l.s);
+      if (l.t === "head") rows[0] = "# " + rows[0];
+      for (const r of rows) {
+        if (cur.rows.length >= per) { const t = cur.a.replace(/ \(cont\.\)$/, ""); start(t + " (cont.)"); }
+        cur.rows.push(r);
+      }
+    }
+    return {
+      items: items
+        .map((p) => ({ a: p.a, b: p.rows.join("\n").replace(/^\n+|\n+$/g, "") }))
+        .filter((p) => p.b.trim()),
+    };
+  }
+
+  return { chunkNotes, parseAiPages, localFormat, plainNotes, luaToItems, luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
 });
