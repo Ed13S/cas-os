@@ -37,7 +37,7 @@ Anything that reads like a sentence is sent to the AI tutor.
 
 **TI-Nspire files.** Use **Docs → Open .tns / Export .tns**, or add a *Calculator app: Notes* or *Flashcards* page, type your content, and export. Copy the `.tns` to the calculator with the TI-Nspire software. The *TI-Nspire file (advanced)* page edits Lua and Python scripts inside `.tns` files made by CAS OS.
 
-Limits: `.tns` files saved by TI's own software are encrypted, so CAS OS cannot read or edit what is inside them (Notes, Calculator pages or their Lua scripts). It can open and edit only `.tns` files it made itself. To change an existing TI file, edit it in the TI-Nspire software and paste text in from CAS OS.
+Limits: the Notes, Calculator and Lua pages inside `.tns` files saved by TI's own software are encrypted, so CAS OS cannot read or edit them. Python files (`.py`) inside a TI-made document are not encrypted, so CAS OS can open, edit and re-save those. It can open and edit only `.tns` files it made itself. To change an existing TI file, edit it in the TI-Nspire software and paste text in from CAS OS.
 
 See [USER_MANUAL.md](USER_MANUAL.md) for more detail.
 
