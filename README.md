@@ -89,3 +89,7 @@ Click **⇄ Calculator** in the top bar (Chrome or Edge only), plug in the calcu
 Native Calculator pages made by TI software are encrypted, so CAS OS cannot write them. That is why UDFs go in via an installer.
 
 The USB code in `vendor/nspirelink/` is GPL-3.0-or-later (see its LICENSE). It has only been tested against a simulator.
+
+## Licence
+
+This project is licensed under GPL-3.0-or-later (see LICENSE), because it includes the GPL-licensed nspirelink code in vendor/nspirelink/.
