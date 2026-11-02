@@ -174,3 +174,28 @@ test("pasted notes are split into pages (no AI) and AI replies are parsed", () =
   assert.match(lua, /INDEX LAWS/);
   assert.match(TNS.plainNotes({ title: "T", items: r.items }), /=== INDEX LAWS ===/);
 });
+
+test("checkLua catches the mistakes that only show up on the calculator", () => {
+  const good = TNS.luaViewer({ mode: "notes", title: "T", items: [{ a: "A", b: "x" }] });
+  assert.equal(TNS.checkLua(good), null);
+  // the exact failure reported from a real calculator: Notes text pasted as code
+  assert.match(TNS.checkLua("=== 1. INDEX LAWS ===\n\n-- Basic --\na^m"), /Line 1 starts with "==="/);
+  assert.match(TNS.checkLua("-- title\n=== PAGE ===\nfunction on.paint(gc) end"), /Line 2 starts with "==="/);
+  assert.match(TNS.checkLua('local x = "abc\nfunction on.paint(gc) end'), /closing quote/);
+  assert.match(TNS.checkLua("local t = {1,2\nfunction on.paint(gc) end"), /never closed/);
+  assert.match(TNS.checkLua("local t = {1,2})\nfunction on.paint(gc) end"), /no matching/);
+  assert.match(TNS.checkLua("print(1)"), /no on\.paint/);
+  // brackets inside strings and comments are ignored
+  assert.equal(TNS.checkLua('local s = "(((" -- }}}\n--[[ ( ]]\nfunction on.paint(gc) gc:drawString("[", 0, 0) end'), null);
+});
+
+test("Notes text in the No-Code format becomes pages", () => {
+  const txt = "INDEX LAWS\n\n=== 1. INDEX LAWS ===\n\n-- Basic --\na^m * a^n = a^(m+n)\n\n=== 2. LOGS ===\n\nlog_a(1) = 0\n";
+  const r = TNS.localFormat(txt);
+  assert.deepEqual(r.items.map((p) => p.a), ["INDEX LAWS", "1. INDEX LAWS", "2. LOGS"].filter((x, i) => i > 0 || r.items[0].a === "INDEX LAWS"));
+  const p1 = r.items.find((p) => p.a === "1. INDEX LAWS");
+  assert.equal(p1.b, "# Basic\na^m * a^n = a^(m+n)");
+  // round trip: pages -> plain text -> pages
+  const back = TNS.localFormat(TNS.plainNotes({ title: "", items: r.items }, { symbols: false }));
+  assert.deepEqual(back.items.map((p) => p.b), r.items.map((p) => p.b));
+});

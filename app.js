@@ -346,7 +346,7 @@
       "<label>" + (cards ? "Question" : "Page title") + ' <input id="bA" value="' + esc(it.a) + '"></label>' +
       "<label>" + (cards ? "Answer" : "Text") + ' <textarea id="bB" placeholder="' + (cards ? "The answer" : "Type one line per line. Start a line with # to make a heading. Long lines wrap and long pages continue on the next screen automatically.") + '">' + esc(it.b) + "</textarea></label>" +
       '<div class="tnsbar"><button id="bPrev">Preview</button><button id="bDel">Delete this ' + (cards ? "card" : "page") + '</button><button id="bSave">Save as .tns</button><button id="bCode">Edit the code instead</button></div>' +
-      (cards ? "" : '<label>Paste a slab of notes <textarea id="bPaste" placeholder="Paste any notes here, then press Auto-format. It splits them into pages and headings for you."></textarea></label><div class="tnsbar"><button id="bFormat">Auto-format into pages</button></div><div class="tnsbar"><button id="bCopy">Copy as text for a Notes page</button><button id="bTxt">Download .txt</button><label class="file">Import a Lua notes script<input id="bLua" type="file" accept=".lua,.txt"></label></div>') +
+      (cards ? "" : '<label>Paste a slab of notes <textarea id="bPaste" placeholder="Paste any notes here, then press Auto-format. It splits them into pages and headings for you."></textarea></label><div class="tnsbar"><button id="bFormat">Auto-format into pages</button></div><div class="tnsbar"><button id="bCopy">Copy as text for a Notes page</button><button id="bTxt">Download .txt</button><label class="file">Import a .lua or .txt notes file<input id="bLua" type="file" accept=".lua,.txt"></label></div>') +
       '<canvas id="bPreview" width="320" height="240" hidden></canvas>' +
       '<div class="tnsbar" id="bPrevBar" hidden><button id="bPp">&#9664; Back</button><button id="bPn">Next &#9654;</button>' + (cards ? '<button id="bPe">Show / hide answer</button>' : "") + "</div>" +
       '<output id="tnsOut">' + esc(p.status || "") + "</output>" +
@@ -526,7 +526,17 @@
         const f = e.target.files[0];
         if (!f) return;
         try {
-          const got = TNS.luaToItems(await f.text());
+          const txt = await f.text();
+          let got;
+          try {
+            got = TNS.luaToItems(txt);
+          } catch (e1) {
+            // not a Lua script: treat it as plain notes (e.g. the Gem's "No-Code Notes" text)
+            if (/\bon\.paint\b/.test(txt)) throw e1;
+            got = TNS.localFormat(txt);
+            got.title = b.title;
+            if (!got.items.length) throw e1;
+          }
           b.title = got.title;
           b.items = got.items;
           b.sel = 0;
@@ -633,6 +643,11 @@
     };
     $("#tnsSave").onclick = async () => {
       try {
+        const warn = p.lua ? TNS.checkLua(p.lua) : null;
+        if (warn && !confirm("This Lua script has a problem:\n\n" + warn + "\n\nSave it anyway?")) {
+          out.textContent = "Not saved: " + warn;
+          return;
+        }
         const bytes = await TNS.write(tnsDoc(p));
         download(p.title.replace(/\.tns$/i, "") + ".tns", bytes);
         out.textContent = "Saved " + bytes.length + " bytes.";

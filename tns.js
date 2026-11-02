@@ -829,7 +829,12 @@ function on.escapeKey() idx = 1; show = false; platform.window:invalidate() end
     for (let raw of String(text).replace(/\r/g, "").split("\n")) {
       raw = raw.replace(/\s+$/, "");
       const m = /^(#{1,6})\s+(.*)$/.exec(raw);
-      if (m) lines.push({ t: m[1].length <= 2 ? "page" : "head", s: unmark(m[2]) });
+      const eq = /^={2,}\s*(.+?)\s*={2,}$/.exec(raw.trim());
+      const dash = /^-{2}\s*(.+?)\s*-{2}$/.exec(raw.trim());
+      if (eq) lines.push({ t: "page", s: unmark(eq[1]) });
+      else if (dash) lines.push({ t: "head", s: unmark(dash[1]) });
+      else if (/^[-=_*]{3,}$/.test(raw.trim())) continue;
+      else if (m) lines.push({ t: m[1].length <= 2 ? "page" : "head", s: unmark(m[2]) });
       else if (/^(\d+[.)]\s+)?[A-Z][A-Z0-9 &,'\-()/]{3,}:?$/.test(raw.trim()) && raw.trim().length <= 40) lines.push({ t: "page", s: raw.trim().replace(/:$/, "") });
       else if (/^[A-Z][^.!?]{2,38}:$/.test(raw.trim())) lines.push({ t: "head", s: raw.trim().replace(/:$/, "") });
       else lines.push({ t: "line", s: unmark(raw.replace(/^\s*[-*•]\s+/, "- ")) });
@@ -869,5 +874,61 @@ function on.escapeKey() idx = 1; show = false; platform.window:invalidate() end
     };
   }
 
-  return { chunkNotes, parseAiPages, localFormat, plainNotes, luaToItems, luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
+  /**
+   * Quick sanity check of a Lua script before it goes into a .tns.
+   * Returns a plain-English problem, or null when nothing looks wrong. (The calculator only reports
+   * errors when the page opens, e.g. "unexpected symbol near '=='" when Notes text was pasted as code.)
+   */
+  function checkLua(src) {
+    const text = String(src);
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++)
+      if (/^\s*={3,}/.test(lines[i]))
+        return "Line " + (i + 1) + ' starts with "===". That is Notes text (the "No-Code Notes" format), not Lua. Paste it into a Notes page, or into the "Paste a slab of notes" box of a Notes app page.';
+    const stack = [];
+    const open = "({[", close = ")}]";
+    let i = 0, line = 1;
+    while (i < text.length) {
+      const c = text[i];
+      if (c === "\n") line++;
+      if (c === "-" && text[i + 1] === "-") {
+        const lm = /^--\[(=*)\[/.exec(text.slice(i));
+        if (lm) {
+          const end = text.indexOf("]" + lm[1] + "]", i);
+          if (end < 0) return "A --[[ comment starting on line " + line + " is never closed.";
+          line += (text.slice(i, end).match(/\n/g) || []).length;
+          i = end + lm[1].length + 2;
+          continue;
+        }
+        while (i < text.length && text[i] !== "\n") i++;
+        continue;
+      }
+      if (c === "[" && /^\[=*\[/.test(text.slice(i))) {
+        const lm = /^\[(=*)\[/.exec(text.slice(i));
+        const end = text.indexOf("]" + lm[1] + "]", i);
+        if (end < 0) return "A [[ string starting on line " + line + " is never closed.";
+        line += (text.slice(i, end).match(/\n/g) || []).length;
+        i = end + lm[1].length + 2;
+        continue;
+      }
+      if (c === '"' || c === "'") {
+        let j = i + 1;
+        while (j < text.length && text[j] !== c && text[j] !== "\n") j += text[j] === "\\" ? 2 : 1;
+        if (text[j] !== c) return "The text starting on line " + line + " is missing its closing quote.";
+        i = j + 1;
+        continue;
+      }
+      if (open.includes(c)) stack.push({ c, line });
+      else if (close.includes(c)) {
+        const top = stack.pop();
+        if (!top || open.indexOf(top.c) !== close.indexOf(c)) return "Line " + line + ": '" + c + "' has no matching opening bracket.";
+      }
+      i++;
+    }
+    if (stack.length) return "The '" + stack[stack.length - 1].c + "' on line " + stack[stack.length - 1].line + " is never closed.";
+    if (!/\bfunction\s+on\.\w+|\bon\.paint\s*=/.test(text)) return "There is no on.paint(gc) function, so the calculator would draw nothing.";
+    return null;
+  }
+
+  return { checkLua, chunkNotes, parseAiPages, localFormat, plainNotes, luaToItems, luaViewer, THEMES, read, write, setCodec, newLuaDocument, newPythonDocument, pythonProblemFile, luaFromDocument, replaceLua, luaFromCasDoc, encodeXml, decodeXml, decodeXmlLossless, crc32 };
 });
