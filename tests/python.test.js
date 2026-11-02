@@ -147,3 +147,11 @@ test("quiz marks right answers and wrong ones", () => {
   assert.match(out, /Score \d\/3/);
   assert.match(out, /Rule:/);
 });
+
+test("show-your-working helper", () => {
+  const o = run("working.py", ["3", "0", "2", "10", "3"]);
+  assert.match(o, /v = sqrt\(\(0\)\^2 \+ 2 \(2\) \(10\)\)/);
+  assert.match(o, /v = 6\.32 m\/s/);
+  assert.match(run("working.py", ["8", "12", "1000", "2000", "3"]), /Vout = \(12\) \(2000\)\/\(\(1000\)\+\(2000\)\)/);
+  assert.match(run("working.py", ["14", "1", "-5", "6", "3"]), /D = \(-5\)\^2 - 4 \(1\) \(6\)/);
+});
