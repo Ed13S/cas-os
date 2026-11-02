@@ -75,3 +75,23 @@ Covers the engine, graphing, `.tns` files (compared against the Luna reference w
 ## Credits
 
 [math.js](https://mathjs.org) and [Algebrite](http://algebrite.org) do the maths. The `.tns` writer follows [Luna](https://github.com/ndless-nspire/Luna) (MPL 1.1).
+
+## Send to your calculator over USB
+
+Click **⇄ Calculator** in the top bar (Chrome or Edge only), plug in the calculator and press **Connect calculator**.
+
+- **Send file(s)** copies any files into the folder you are viewing. Existing files are never replaced without asking.
+- **＋ New folder** makes a folder (nested names like `Maths/Week 1` work). Click a folder to open it, **⬆ Up** to go back.
+- **Send a folder** uploads a whole folder from your computer, keeping its sub-folders.
+- **Send to calculator** buttons sit beside **Save as .tns** in the notes builder and the .tns editor.
+- **Install all UDFs** sends `Install UDFs.tns`. Open it on the calculator, press any key, and every `Define` line from `docs/udfs/udfs.txt` is defined for you. This is experimental (not yet tried on real hardware); fallback: *Copy Program Editor installer text*, paste it into one new program, run `installudfs()`.
+
+Native Calculator pages made by TI software are encrypted, so CAS OS cannot write them. That is why UDFs go in via an installer.
+
+The USB code in `vendor/nspirelink/` is GPL-3.0-or-later (see its LICENSE). It has only been tested against a simulator.
+
+## Licence
+
+This project is licensed under GPL-3.0-or-later (see LICENSE), because it includes the GPL-licensed nspirelink code in vendor/nspirelink/.
+
+**More UDF options:** *Copy UDFs with LibPub (for MyLib)* in the USB dialog gives you every definition as `Define LibPub …`. Paste it into a Calculator page in TI-Nspire Student Software, save the document into `MyLib`, then Refresh Libraries on the calculator. In **Docs**, *Export Define lines as a calculator installer .tns* turns any `Define` lines you typed on a CAS OS Calculator page into an installer file.
