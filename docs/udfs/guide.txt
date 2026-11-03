@@ -1,0 +1,455 @@
+=== DISC ===
+-- What it does --
+Discriminant b²-4ac of a quadratic. Tells you how many real roots there are.
+-- Example --
+Find the discriminant of x²-5x+6
+-- Type --
+disc(1,-5,6)
+-- Gives --
+1
+-- Why --
+b²-4ac = 25-24. Positive: two roots, zero: one, negative: none.
+
+=== QROOT1 ===
+-- What it does --
+The root of ax²+bx+c using +√ in the quadratic formula.
+-- Example --
+Find the root of x²-5x+6 that uses +√
+-- Type --
+qroot1(1,-5,6)
+-- Gives --
+3
+-- Why --
+(5+√1)/2 = 3.
+
+=== QROOT2 ===
+-- What it does --
+The root of ax²+bx+c using -√ in the quadratic formula.
+-- Example --
+Find the root of x²-5x+6 that uses -√
+-- Type --
+qroot2(1,-5,6)
+-- Gives --
+2
+-- Why --
+(5-√1)/2 = 2.
+
+=== VERTX ===
+-- What it does --
+x-coordinate of the turning point of y=ax²+bx+c.
+-- Example --
+Turning point x of y=x²-5x+6
+-- Type --
+vertx(1,-5)
+-- Gives --
+2.5
+-- Why --
+-b/2a = 5/2.
+
+=== VERTY ===
+-- What it does --
+y-coordinate of the turning point of y=ax²+bx+c.
+-- Example --
+Turning point y of y=x²-5x+6
+-- Type --
+verty(1,-5,6)
+-- Gives --
+-0.25
+-- Why --
+c-b²/4a = 6-6.25.
+
+=== ZSCORE ===
+-- What it does --
+Converts a value to a z-score.
+-- Example --
+An IQ of 130, mean 100, SD 15. Find z
+-- Type --
+zscore(130,100,15)
+-- Gives --
+2
+-- Why --
+(130-100)/15 = 2.
+
+=== XFROMZ ===
+-- What it does --
+Converts a z-score back into a value.
+-- Example --
+z = 2, mean 100, SD 15. Find x
+-- Type --
+xfromz(2,100,15)
+-- Gives --
+130
+-- Why --
+100 + 2x15 = 130.
+
+=== BINMEAN ===
+-- What it does --
+Mean (expected value) of a binomial distribution.
+-- Example --
+X ~ Bin(10, 0.5). Find E(X)
+-- Type --
+binmean(10,0.5)
+-- Gives --
+5
+-- Why --
+np = 10x0.5.
+
+=== BINSD ===
+-- What it does --
+Standard deviation of a binomial distribution.
+-- Example --
+X ~ Bin(10, 0.5). Find SD(X)
+-- Type --
+binsd(10,0.5)
+-- Gives --
+1.5811
+-- Why --
+√(np(1-p)) = √2.5.
+
+=== RSF ===
+-- What it does --
+Rounds x to n significant figures.
+-- Example --
+Round 123456 to 2 significant figures
+-- Type --
+rsf(123456,2)
+-- Gives --
+120000
+-- Why --
+Keeps 2 significant digits, the rest become zeros.
+
+=== VFIN ===
+-- What it does --
+Final velocity v = u+at.
+-- Example --
+u = 3 m/s, a = 2 m/s², t = 4 s. Find v
+-- Type --
+vfin(3,2,4)
+-- Gives --
+11
+-- Why --
+3 + 2x4.
+
+=== SDIST ===
+-- What it does --
+Displacement s = ut + 1/2at².
+-- Example --
+u = 3, a = 2, t = 4. Find s
+-- Type --
+sdist(3,2,4)
+-- Gives --
+28
+-- Why --
+3x4 + 1/2x2x16 = 12+16.
+
+=== VSOL ===
+-- What it does --
+Final speed from v² = u²+2as (positive root).
+-- Example --
+u = 3, a = 2, s = 28. Find v
+-- Type --
+vsol(3,2,28)
+-- Gives --
+11
+-- Why --
+√(9+112) = 11.
+
+=== KE ===
+-- What it does --
+Kinetic energy 1/2mv².
+-- Example --
+m = 2 kg, v = 3 m/s. Find KE
+-- Type --
+ke(2,3)
+-- Gives --
+9
+-- Why --
+1/2x2x9 = 9 J.
+
+=== PE ===
+-- What it does --
+Gravitational potential energy mgh with g = 9.8.
+-- Example --
+m = 2 kg, h = 5 m. Find PE
+-- Type --
+pe(2,5)
+-- Gives --
+98
+-- Why --
+2x9.8x5 = 98 J.
+
+=== RANGE_ ===
+-- What it does --
+Projectile range on level ground. Angle in degrees, g = 9.8.
+-- Example --
+Launched at 20 m/s and 45 deg. Find the range
+-- Type --
+range_(20,45)
+-- Gives --
+40.816
+-- Why --
+v² sin2theta / g = 400x1/9.8. Name ends in _ because range is a reserved word.
+
+=== MAXH ===
+-- What it does --
+Maximum height of a projectile. Angle in degrees.
+-- Example --
+Launched at 20 m/s and 45 deg. Find the max height
+-- Type --
+maxh(20,45)
+-- Gives --
+10.204
+-- Why --
+(v sintheta)² / 2g.
+
+=== TFLIGHT ===
+-- What it does --
+Time of flight of a projectile. Angle in degrees.
+-- Example --
+Launched at 20 m/s and 45 deg. Find the time in the air
+-- Type --
+tflight(20,45)
+-- Gives --
+2.8862
+-- Why --
+2v sintheta / g.
+
+=== EFIELD ===
+-- What it does --
+Electric field strength of a point charge, E = kq/r², k = 8.99x10^9.
+-- Example --
+q = 1x10^-6 C, r = 0.1 m. Find E (N/C)
+-- Type --
+efield(1e-6,0.1)
+-- Gives --
+899000
+-- Why --
+8.99x10^9 x 10^-6 / 0.01.
+
+=== GFIELD ===
+-- What it does --
+Gravitational field strength g = GM/r², G = 6.67x10^-11.
+-- Example --
+Earth M = 5.97x10²^4 kg, r = 6.371x10^6 m. Find g
+-- Type --
+gfield(5.97e24,6.371e6)
+-- Gives --
+9.8104
+-- Why --
+GM/r². Type powers of ten as 5.97e24.
+
+=== RSER ===
+-- What it does --
+Total resistance of two resistors in series.
+-- Example --
+100 ohm and 220 ohm in series
+-- Type --
+rser(100,220)
+-- Gives --
+320
+-- Why --
+R1+R2.
+
+=== RPAR ===
+-- What it does --
+Total resistance of two resistors in parallel.
+-- Example --
+Two 100 ohm resistors in parallel
+-- Type --
+rpar(100,100)
+-- Gives --
+50
+-- Why --
+R1R2/(R1+R2).
+
+=== OHMV ===
+-- What it does --
+Voltage V = IR.
+-- Example --
+20 mA through 470 ohm. Find V
+-- Type --
+ohmv(0.02,470)
+-- Gives --
+9.4
+-- Why --
+0.02x470. Use amps, not mA.
+
+=== OHMI ===
+-- What it does --
+Current I = V/R.
+-- Example --
+9 V across 330 ohm. Find I (A)
+-- Type --
+ohmi(9,330)
+-- Gives --
+0.027273
+-- Why --
+9/330.
+
+=== PWR ===
+-- What it does --
+Power P = VI.
+-- Example --
+9 V at 0.02 A. Find P (W)
+-- Type --
+pwr(9,0.02)
+-- Gives --
+0.18
+-- Why --
+9x0.02.
+
+=== VDIV ===
+-- What it does --
+Voltage divider output across R2.
+-- Example --
+9 V, R1 = 1 kohm, R2 = 2 kohm. Find Vout
+-- Type --
+vdiv(9,1000,2000)
+-- Gives --
+6
+-- Why --
+9x2000/3000.
+
+=== TAU ===
+-- What it does --
+RC time constant tau = RC in seconds.
+-- Example --
+10 kohm and 100 uF. Find tau
+-- Type --
+tau(10000,1e-4)
+-- Gives --
+1
+-- Why --
+10^4 x 10^-4 = 1 s.
+
+=== VCHARGE ===
+-- What it does --
+Capacitor voltage after time t while charging: Vs(1-e^(-t/RC)).
+-- Example --
+5 V, 1 kohm, 1 mF, t = 1 s. Find V
+-- Type --
+vcharge(5,1000,1e-3,1)
+-- Gives --
+3.1606
+-- Why --
+t = RC, so 63.2% of 5 V.
+
+=== TCHARGE ===
+-- What it does --
+Time for a capacitor to reach a percentage of the supply.
+-- Example --
+1 kohm and 1 mF. Time to reach 90%
+-- Type --
+tcharge(1000,1e-3,90)
+-- Gives --
+2.3026
+-- Why --
+-RC ln(1-0.9).
+
+=== RLED ===
+-- What it does --
+Series resistor for an LED: (Vs-Vf)/I.
+-- Example --
+5 V supply, 2 V LED, 20 mA
+-- Type --
+rled(5,2,0.02)
+-- Gives --
+150
+-- Why --
+3 V / 0.02 A. Pick the next standard value up.
+
+=== IBASE ===
+-- What it does --
+Base current needed for a collector current: Ic/beta.
+-- Example --
+Ic = 0.5 A, beta = 100. Find Ib
+-- Type --
+ibase(0.5,100)
+-- Gives --
+0.005
+-- Why --
+0.5/100.
+
+=== RBASE ===
+-- What it does --
+Base resistor for a transistor switch, with an overdrive factor to make sure it saturates.
+-- Example --
+5 V, Vbe 0.7 V, Ic 0.5 A, beta 100, overdrive 5
+-- Type --
+rbase(5,0.7,0.5,100,5)
+-- Gives --
+172
+-- Why --
+(5-0.7) / (5 x 0.005).
+
+=== DARL ===
+-- What it does --
+Overall gain of a Darlington pair: beta1xbeta2.
+-- Example --
+Two transistors with beta = 100 and 50
+-- Type --
+darl(100,50)
+-- Gives --
+5000
+-- Why --
+100x50.
+
+=== GEARR ===
+-- What it does --
+Gear ratio = driven teeth / driver teeth.
+-- Example --
+Driver 12 teeth, driven 36 teeth
+-- Type --
+gearr(12,36)
+-- Gives --
+3
+-- Why --
+36/12. Output turns slower, torque goes up.
+
+=== RPMOUT ===
+-- What it does --
+Output speed of a gear train.
+-- Example --
+1200 rpm in, ratio 3
+-- Type --
+rpmout(1200,3)
+-- Gives --
+400
+-- Why --
+1200/3.
+
+=== TORQ ===
+-- What it does --
+Output torque of a gear train (ignoring losses).
+-- Example --
+2 N*m in, ratio 3
+-- Type --
+torq(2,3)
+-- Gives --
+6
+-- Why --
+2x3.
+
+=== PWRROT ===
+-- What it does --
+Rotational power P = tauw with w from rpm.
+-- Example --
+2 N*m at 1200 rpm. Find P (W)
+-- Type --
+pwrrot(2,1200)
+-- Gives --
+251.33
+-- Why --
+2 x 2π x 1200/60.
+
+=== MA ===
+-- What it does --
+Mechanical advantage = load / effort.
+-- Example --
+Load 100 N, effort 25 N
+-- Type --
+ma(100,25)
+-- Gives --
+4
+-- Why --
+100/25.

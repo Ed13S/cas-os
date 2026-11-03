@@ -84,7 +84,7 @@ Click **⇄ Calculator** in the top bar (Chrome or Edge only), plug in the calcu
 - **＋ New folder** makes a folder (nested names like `Maths/Week 1` work). Click a folder to open it, **⬆ Up** to go back.
 - **Send a folder** uploads a whole folder from your computer, keeping its sub-folders.
 - **Send to calculator** buttons sit beside **Save as .tns** in the notes builder and the .tns editor.
-- **Install all UDFs** sends `Install UDFs.tns`. Open it on the calculator, press any key, and every `Define` line from `docs/udfs/udfs.txt` is defined for you. This is experimental (not yet tried on real hardware); fallback: *Copy Program Editor installer text*, paste it into one new program, run `installudfs()`.
+- **Install all UDFs** sends `UDF Guide.tns` (how-to pages for every function). Open it on the calculator, press **i**, and every `Define` line from `docs/udfs/udfs.txt` is defined for you. This is experimental (not yet tried on real hardware); fallback: *Copy Program Editor installer text*, paste it into one new program, run `installudfs()`.
 
 Native Calculator pages made by TI software are encrypted, so CAS OS cannot write them. That is why UDFs go in via an installer.
 
