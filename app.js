@@ -34,6 +34,9 @@
   } catch {
     doc = blank();
   }
+  if (!doc || !Array.isArray(doc.pages) || !doc.pages.length) doc = blank();
+  for (const pg of doc.pages) if (pg && pg.kind === "calculator" && (!Array.isArray(pg.rows) || !pg.rows.length)) pg.rows = [{ input: "", output: "" }];
+  doc.active = Math.min(Math.max(+doc.active || 0, 0), doc.pages.length - 1);
   let selected = 0,
     py = null;
   const esc = (x) =>
@@ -879,5 +882,22 @@
     $("#commands").showModal();
   };
   window.__openMenu = openMenu;
-  render();
+  try {
+    render();
+  } catch (e) {
+    console.error(e);
+    // A saved page that cannot be drawn must not leave a blank screen: fall back to its first page that can.
+    for (let i = 0; i < doc.pages.length; i++) {
+      doc.active = i;
+      try { render(); break; } catch (e2) { /* try the next one */ }
+    }
+  }
+  document.addEventListener("keydown", (e) => {
+    if (!e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+    if (document.querySelector("dialog[open]")) return;
+    if (e.code === "KeyM") { e.preventDefault(); openMenu(); }
+    else if (e.code === "KeyD") { e.preventDefault(); $("#docs").click(); }
+  });
 })();
