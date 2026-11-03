@@ -57,6 +57,16 @@
     let mod = null,
       link = null,
       info = null;
+    // Find what is at a path by listing its parent folder. (Asking a real CX II for the attributes of a
+    // file that is not there can go unanswered, which times out and closes the link.)
+    const look = async (path) => {
+      const i = path.lastIndexOf("/");
+      const parent = path.slice(0, i) || "/", name = path.slice(i + 1).toLowerCase();
+      let items;
+      try { items = await link.list(parent); } catch (e) { if (e && e.code === "NOT_FOUND") return null; throw e; }
+      const hit = items.find((x) => x.name.toLowerCase() === name);
+      return hit ? { name: hit.name, size: hit.size, dir: !!hit.dir } : null;
+    };
     const api = {
       supported: () => !!(opts.device || usbOf()),
       get connected() {
@@ -95,7 +105,7 @@
       /** True if My Documents already has a file with this name. */
       async exists(name) {
         if (!link) throw Object.assign(new Error("Not connected."), { code: "NOT_OPEN" });
-        return !!(await link.attr("/" + name));
+        return !!(await look("/" + name));
       },
       /** Put bytes into My Documents. Throws code EXISTS unless overwrite is true. Returns the path. */
       async send(name, bytes, o) {
@@ -119,7 +129,7 @@
         let cur = "";
         for (const part of parts) {
           cur += "/" + part;
-          const a = await link.attr(cur);
+          const a = await look(cur);
           if (a && !a.dir) throw Object.assign(new Error("There is already a file called " + part + "."), { code: "EXISTS", name: part });
           if (!a) await link.mkdir(cur);
         }
@@ -134,7 +144,7 @@
         const dir = await api.mkdir(folder || "/");
         const file = safePart(name);
         const path = joinPath(dir, file);
-        if (!o.overwrite && (await link.attr(path))) throw Object.assign(new Error(TIPS.EXISTS), { code: "EXISTS", name: file, path });
+        if (!o.overwrite && (await look(path))) throw Object.assign(new Error(TIPS.EXISTS), { code: "EXISTS", name: file, path });
         await link.put(path, bytes, { onProgress: o.onProgress });
         return path;
       },
