@@ -69,7 +69,7 @@
       '<ul id="clList"></ul>' +
       '<div class="tnsbar"><label class="file">Send file(s)<input id="clFiles" type="file" multiple></label>' +
       '<label class="file">Send a folder<input id="clDir" type="file" webkitdirectory multiple></label>' +
-      '<button id="clUdf">Install all UDFs</button><button id="clGuide">Send UDF guide + installer</button></div></div>' +
+      '<button id="clUdf">Install all UDFs (guide + installer)</button> <button id="clDl">Download it instead</button></div></div>' +
       '<output id="clOut"></output><details><summary>Help</summary><p>Chrome or Edge, calculator plugged in and on its home screen. ' +
       'On Windows an original CX needs the WinUSB driver (Zadig). On Linux you may need a udev rule. ' +
       'UDFs: the installer .tns defines every function when you open it and press a key; if that fails, use the Program Editor text (button below).</p>' +
@@ -145,12 +145,14 @@
         e.target.value = ""; await sendMany(items);
       });
       $("#clUdf").onclick = () => guard(async () => {
-        const t = await udfText();
-        const bytes = await TNS.write(TNS.newLuaDocument(udfInstallerLua(t)));
-        await sendMany([{ path: "Install UDFs.tns", bytes }]);
-        say("Sent Install UDFs.tns. Open it on the calculator and press any key.");
+        await sendMany([{ path: "UDF Guide.tns", bytes: await guideBytes() }]);
+        say("Sent UDF Guide.tns. Open it on the calculator and press i to install all the UDFs.");
       });
-      $("#clGuide").onclick = () => guard(async () => sendMany([{ path: "UDF Guide.tns", bytes: await guideBytes() }]));
+      $("#clDl").onclick = () => guard(async () => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([await guideBytes()])); a.download = "UDF Guide.tns"; a.click();
+        say("Downloaded UDF Guide.tns.");
+      });
       $("#clLib").onclick = async () => {
         try { await navigator.clipboard.writeText(libPubText(await udfText())); say("Copied. Paste into a Calculator page in TI-Nspire Student Software, save the document into MyLib, then Refresh Libraries on the calculator."); } catch (e) { say(e.message); }
       };
