@@ -45,3 +45,24 @@ test("UDF guide becomes a notes app with one page per function", () => {
   for (const it of got.items) assert.ok(it.b.split("\n").length <= 12, it.a);
   assert.ok(got.items.some((it) => /^DISC/.test(it.a) && /disc\(1,-5,6\)/.test(it.b)));
 });
+
+test("combined guide + installer: pages work and pressing i installs", () => {
+  const code = UI.guideLua(fs.readFileSync(__dirname + "/../docs/udfs/guide.txt", "utf8"), text);
+  assert.equal(TNS.checkLua(code), null);
+  const L = lauxlib.luaL_newstate();
+  lualib.luaL_openlibs(L);
+  const prog = `on={} seen={}
+math.eval=function(s) seen[#seen+1]=s return 1 end
+local W,H=320,240
+gc={setFont=function() end,setColorRGB=function() end,fillRect=function() end,getStringWidth=function(_,s) return #s*5 end,drawString=function(_,s,x,y,pos) drawn[#drawn+1]=s end}
+platform={window={width=function() return W end,height=function() return H end,invalidate=function() end}}
+drawn={}
+${code}
+on.paint(gc)
+local first=#drawn
+on.arrowRight() on.charIn('i') drawn={} on.paint(gc)
+local shown=false for _,s in ipairs(drawn) do if s:find('installed') then shown=true end end
+return #seen..'|'..tostring(shown)..'|'..tostring(first>0)`;
+  assert.equal(lauxlib.luaL_dostring(L, to_luastring(prog)), lua.LUA_OK, lua.lua_tojsstring(L, -1));
+  assert.equal(lua.lua_tojsstring(L, -1), n + "|true|true");
+});

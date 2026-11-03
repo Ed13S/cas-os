@@ -1,5 +1,6 @@
 /* "Calculator (USB)" dialog: connect, browse folders, make folders, send files/folders, install UDFs. */
 (function () {
+  const TNS = typeof window !== "undefined" ? window.TNS : require("./tns.js");
   const $ = (s, r) => (r || document).querySelector(s);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   let link = null, folder = "/", busy = false;
@@ -30,12 +31,21 @@
     for (const p of (doc && doc.pages) || []) if (p.kind === "calculator") for (const r of p.rows || []) if (r.input && /^\s*Define\s/i.test(r.input)) out.push(r.input.trim());
     return out.join("\n");
   }
+  /** One document: the how-to pages, and pressing "i" installs every UDF (experimental). */
+  function guideLua(guideText, udfs) {
+    const start = "=== START HERE ===\n-- Install --\nPress i to define all the\nUDFs in this document.\n-- Then --\nAdd a Calculator page (Ctrl+I)\nand type e.g. disc(1,-5,6).\n-- Pages --\nUse the arrow keys to read how\neach function works.\n\n";
+    const got = TNS.localFormat(start + guideText, { symbols: false });
+    const view = TNS.luaViewer({ mode: "notes", title: "UDF Guide", theme: "dark", items: got.items });
+    const inst = udfInstallerLua(udfs).replace(/function on\.paint[\s\S]*?\nend\n(?=local function run)/, "").replace("local msg, bad = 'Press any key to install ' .. #L .. ' functions', {}", "local msg, bad = '', {}");
+    return view + "\n" + inst.replace(/function on\.charIn\(\) run\(\) end\nfunction on\.enterKey\(\) run\(\) end\nfunction on\.mouseDown\(\) run\(\) end\n/, "") +
+      "local viewPaint = on.paint\nfunction on.paint(gc)\n viewPaint(gc)\n if msg ~= '' then gc:setFont('sansserif','b',9) gc:setColorRGB(255,220,120) gc:drawString(msg, 4, platform.window:height() - 2, 'bottom') for i = 1, math.min(#bad, 3) do gc:drawString(bad[i], 4, 20 + i * 14, 'top') end end\nend\n" +
+      "function on.charIn(c) if c == 'i' or c == 'I' then run() end end\n";
+  }
   /** Notes app (pages of how-to) from docs/udfs/guide.txt. */
   async function guideBytes() {
     const r = await fetch("docs/udfs/guide.txt");
     if (!r.ok) throw new Error("Could not load docs/udfs/guide.txt");
-    const got = TNS.localFormat(await r.text(), { symbols: false });
-    return TNS.write(TNS.newLuaDocument(TNS.luaViewer({ mode: "notes", title: "UDF Guide", theme: "dark", items: got.items })));
+    return TNS.write(TNS.newLuaDocument(guideLua(await r.text(), await udfText())));
   }
   async function udfText() {
     const r = await fetch("docs/udfs/udfs.txt");
@@ -59,7 +69,7 @@
       '<ul id="clList"></ul>' +
       '<div class="tnsbar"><label class="file">Send file(s)<input id="clFiles" type="file" multiple></label>' +
       '<label class="file">Send a folder<input id="clDir" type="file" webkitdirectory multiple></label>' +
-      '<button id="clUdf">Install all UDFs</button><button id="clGuide">Send UDF guide (notes)</button></div></div>' +
+      '<button id="clUdf">Install all UDFs</button><button id="clGuide">Send UDF guide + installer</button></div></div>' +
       '<output id="clOut"></output><details><summary>Help</summary><p>Chrome or Edge, calculator plugged in and on its home screen. ' +
       'On Windows an original CX needs the WinUSB driver (Zadig). On Linux you may need a udev rule. ' +
       'UDFs: the installer .tns defines every function when you open it and press a key; if that fails, use the Program Editor text (button below).</p>' +
@@ -158,7 +168,7 @@
     say("Connect your calculator, then press the Send button again.");
   }
 
-  if (typeof document === "undefined") { module.exports = { udfInstallerLua, programEditorInstaller, libPubText, docDefines }; return; }
+  if (typeof document === "undefined") { module.exports = { guideLua, udfInstallerLua, programEditorInstaller, libPubText, docDefines }; return; }
   window.CalcUI = { open, offer, udfInstallerLua, programEditorInstaller, libPubText, docDefines };
   /** Build an installer .tns from the Define lines on this document's Calculator pages, then send or download it. */
   window.CalcUI.exportInstaller = async function (doc, download) {
