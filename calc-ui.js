@@ -77,7 +77,13 @@
   async function guard(fn) {
     if (busy) return;
     busy = true;
-    try { await fn(); } catch (e) { say(CalcLink.friendlyError(e)); } finally { busy = false; }
+    try { await fn(); } catch (e) {
+      say(CalcLink.friendlyError(e));
+      if (link && !link.connected && $("#clBrowse") && !$("#clBrowse").hidden) {
+        $("#clStatus").textContent = "Disconnected. Press Connect calculator to try again.";
+        $("#clConnect").hidden = false; $("#clDisc").hidden = true; $("#clBrowse").hidden = true;
+      }
+    } finally { busy = false; }
   }
   async function sendMany(items) {
     const res = await link.sendTree(items, folder, {
