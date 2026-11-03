@@ -30,6 +30,13 @@
     for (const p of (doc && doc.pages) || []) if (p.kind === "calculator") for (const r of p.rows || []) if (r.input && /^\s*Define\s/i.test(r.input)) out.push(r.input.trim());
     return out.join("\n");
   }
+  /** Notes app (pages of how-to) from docs/udfs/guide.txt. */
+  async function guideBytes() {
+    const r = await fetch("docs/udfs/guide.txt");
+    if (!r.ok) throw new Error("Could not load docs/udfs/guide.txt");
+    const got = TNS.localFormat(await r.text(), { symbols: false });
+    return TNS.write(TNS.newLuaDocument(TNS.luaViewer({ mode: "notes", title: "UDF Guide", theme: "dark", items: got.items })));
+  }
   async function udfText() {
     const r = await fetch("docs/udfs/udfs.txt");
     if (!r.ok) throw new Error("Could not load docs/udfs/udfs.txt");
@@ -52,7 +59,7 @@
       '<ul id="clList"></ul>' +
       '<div class="tnsbar"><label class="file">Send file(s)<input id="clFiles" type="file" multiple></label>' +
       '<label class="file">Send a folder<input id="clDir" type="file" webkitdirectory multiple></label>' +
-      '<button id="clUdf">Install all UDFs</button></div></div>' +
+      '<button id="clUdf">Install all UDFs</button><button id="clGuide">Send UDF guide (notes)</button></div></div>' +
       '<output id="clOut"></output><details><summary>Help</summary><p>Chrome or Edge, calculator plugged in and on its home screen. ' +
       'On Windows an original CX needs the WinUSB driver (Zadig). On Linux you may need a udev rule. ' +
       'UDFs: the installer .tns defines every function when you open it and press a key; if that fails, use the Program Editor text (button below).</p>' +
@@ -133,6 +140,7 @@
         await sendMany([{ path: "Install UDFs.tns", bytes }]);
         say("Sent Install UDFs.tns. Open it on the calculator and press any key.");
       });
+      $("#clGuide").onclick = () => guard(async () => sendMany([{ path: "UDF Guide.tns", bytes: await guideBytes() }]));
       $("#clLib").onclick = async () => {
         try { await navigator.clipboard.writeText(libPubText(await udfText())); say("Copied. Paste into a Calculator page in TI-Nspire Student Software, save the document into MyLib, then Refresh Libraries on the calculator."); } catch (e) { say(e.message); }
       };

@@ -36,3 +36,12 @@ test("LibPub text and Define lines from a document", () => {
   const doc = { pages: [{ kind: "calculator", rows: [{ input: "Define h(x)=2*x" }, { input: "2+2" }] }, { kind: "notes", text: "Define z(x)=1" }] };
   assert.equal(UI.docDefines(doc), "Define h(x)=2*x");
 });
+
+test("UDF guide becomes a notes app with one page per function", () => {
+  const got = TNS.localFormat(fs.readFileSync(__dirname + "/../docs/udfs/guide.txt", "utf8"), { symbols: false });
+  assert.ok(got.items.length >= n, got.items.length + " pages");
+  const code = TNS.luaViewer({ mode: "notes", title: "UDF Guide", theme: "dark", items: got.items });
+  assert.equal(TNS.checkLua(code), null);
+  for (const it of got.items) assert.ok(it.b.split("\n").length <= 12, it.a);
+  assert.ok(got.items.some((it) => /^DISC/.test(it.a) && /disc\(1,-5,6\)/.test(it.b)));
+});
